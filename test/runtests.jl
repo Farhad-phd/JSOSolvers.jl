@@ -23,7 +23,7 @@ end
     ("lbfgs", lbfgs),
     ("tron", tron),
     ("R2", R2),
-    # ("R2N", R2N),
+    ("R2N", R2N),
     ("R2N_exact", (nlp; kwargs...) -> R2N(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver; kwargs...)),
     ("fomo", fomo),
   ]

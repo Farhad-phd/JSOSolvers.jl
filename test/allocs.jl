@@ -31,7 +31,7 @@ end
 if Sys.isunix()
   @testset "Allocation tests" begin
     @testset "$name" for (name, symsolver) in (
-      # (:R2N, :R2NSolver),
+      (:R2N, :R2NSolver),
       (:R2N_exact, :R2NSolver),
       (:R2, :FoSolver),
       (:fomo, :FomoSolver),
