@@ -189,7 +189,8 @@ function SolverCore.solve!(
   set_time!(stats, 0.0)
   μmin = σmin
   n = nlp.meta.nvar
-  x = solver.x .= x
+  solver.x .= x
+  x = solver.x
   ck = solver.cx
   ∇fk = solver.gx # k-1
   ∇fn = solver.gn #current 
@@ -221,39 +222,6 @@ function SolverCore.solve!(
   ϵ = atol + rtol * norm_∇fk
   optimal = norm_∇fk ≤ ϵ
 
-  if optimal
-    @info("Optimal point found at initial point")
-    @info log_header(
-      [:iter, :f, :grad_norm, :mu, :sigma, :rho, :dir],
-      [Int, Float64, Float64, Float64, Float64, Float64, String],
-      hdr_override = Dict(
-        :f => "f(x)",
-        :grad_norm => "‖∇f‖",
-        :mu => "μ",
-        :sigma => "σ",
-        :rho => "ρ",
-        :dir => "DIR",
-      ),
-    )
-
-    # Define and log the row information with corresponding data values
-    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, ""])
-  end
-  if verbose > 0 && mod(stats.iter, verbose) == 0
-    @info log_header(
-      [:iter, :f, :grad_norm, :mu, :sigma, :rho, :dir],
-      [Int, Float64, Float64, Float64, Float64, Float64, String],
-      hdr_override = Dict(
-        :f => "f(x)",
-        :grad_norm => "‖∇f‖",
-        :mu => "μ",
-        :sigma => "σ",
-        :rho => "ρ",
-        :dir => "DIR",
-      ),
-    )
-    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, ""])
-  end
 
   set_status!(
     stats,
@@ -273,10 +241,51 @@ function SolverCore.solve!(
 
   done = stats.status != :unknown
   cgtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * cgtol))
+  solver.cgtol = cgtol
+
+  if optimal
+    @info("Optimal point found at initial point")
+    @info log_header(
+      [:iter, :f, :grad_norm, :mu, :sigma, :rho, :dir],
+      [Int, Float64, Float64, Float64, Float64, Float64, String],
+      hdr_override = Dict(
+        :f => "f(x)",
+        :grad_norm => "‖∇f‖",
+        :mu => "μ",
+        :sigma => "σ",
+        :rho => "ρ",
+        :dir => "DIR",
+      ),
+    )
+
+    # Define and log the row information with corresponding data values
+    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, ""])
+  end
+
+  if verbose > 0 && mod(stats.iter, verbose) == 0
+    @info log_header(
+      [:iter, :f, :grad_norm, :mu, :sigma, :rho, :sub_iter, :cgtol,:norm_s, :sub_status, :dir],
+      [Int, Float64, Float64, Float64, Float64, Float64, Int, Float64 ,Float64 ,String , String],
+      hdr_override = Dict(
+        :f => "f(x)",
+        :grad_norm => "‖∇f‖",
+        :mu => "μ",
+        :sigma => "σ",
+        :rho => "ρ",
+        :sub_iter=> "Subsolver_iter",
+        :cgtol => "CGTol",
+        :norm_s => "‖s‖",
+        :sub_status=> rpad("Status", 30),
+        :dir       => rpad("DIR", 10)
+      ),
+    )
+    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, 0, cgtol,0.0, " "," "])
+  end
+
 
   while !done
     ∇fk .*= -1
-    subsolver_solved = subsolve!(solver.subsolver_type, solver, s, zero(T), n, subsolver_verbose)
+    subsolver_solved, subsolver_stats, subsolver_iter = subsolve!(solver.subsolver_type, solver, s, zero(T), n, subsolver_verbose)
     if !subsolver_solved
       @warn("Subsolver failed to solve the shifted system")
       break
@@ -284,6 +293,7 @@ function SolverCore.solve!(
     slope = dot(s, ∇fk) # = -∇fkᵀ s because we flipped the sign of ∇fk
     mul!(Hs, H, s)
     curv = dot(s, Hs)
+    norm_s = norm(s)
 
     ΔTk = slope - curv / 2
     ck .= x .+ s
@@ -343,6 +353,10 @@ function SolverCore.solve!(
         μk,                    # Mu value
         σk,                    # Sigma value
         ρk,                    # Rho value
+        subsolver_iter,        # Subsolver iteration
+        cgtol,                 # CGTol
+        norm_s,                # Norm of the step
+        subsolver_stats,       # Subsolver status        
         step_accepted ? "↘" : "↗", # Step acceptance status
       ])
     end
@@ -388,29 +402,30 @@ function subsolve!(subsolver::MinresSolver, R2N::R2NSolver, s, atol, n, subsolve
     verbose = subsolver_verbose,
   )
   s .= subsolver.x
-  return issolved(subsolver)
+  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
 end
 
 # Dispatch for KrylovSolver
 function subsolve!(subsolver::CgLanczosShiftSolver, R2N::R2NSolver, s, atol, n, subsolver_verbose)
+  println("CgLanczosShiftSolver")
   ∇f_neg = R2N.gx
   H = R2N.H
   σ = R2N.σ
-  opI = R2N.opI
+  opI = R2N.opI * σ
   cgtol = R2N.cgtol
-
+  solver = CgLanczosShiftSolver(A, b, length(opI)) #local solver
   cg_lanczos_shift!(
-    subsolver,
+    solver,
     H,
     ∇f_neg,
-    opI * σ,  #shift vector σ * I
+    opI,  #shift vector σ * I
     atol = atol,
     rtol = cgtol,
     itmax = 2 * n,
     verbose = subsolver_verbose,
   )
   s .= subsolver.x
-  return issolved(subsolver)
+  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
 end
 
 # Dispatch for ShiftedLBFGSSolver
@@ -419,5 +434,5 @@ function subsolve!(subsolver::ShiftedLBFGSSolver, R2N::R2NSolver, s, atol, n, su
   H = R2N.H
   σ = R2N.σ
   solve_shifted_system!(s, H, ∇f_neg, σ)
-  return true
+  return true, :success, 0
 end
