@@ -7,8 +7,9 @@ struct ShiftedLBFGSSolver <: AbstractShiftedLBFGSSolver
   # Shifted LBFGS-specific fields
 end
 
-const R2N_allowed_subsolvers = [CgSolver, CgLanczosShiftSolver, MinresSolver, ShiftedLBFGSSolver]
+const R2N_allowed_subsolvers = [CgSolver, CrSolver, CgLanczosShiftSolver, MinresSolver, ShiftedLBFGSSolver]
 # const R2N_allowed_subsolvers = [CgLanczosShiftSolver, MinresSolver, ShiftedLBFGSSolver]
+
 
 """
     R2N(nlp; kwargs...)
@@ -292,16 +293,19 @@ function SolverCore.solve!(
     cx .= x # implicitly update H = hess_op!(nlp, xc, Hs)  we could do with x or cx, but we need to update it 
     ∇fk .*= -1
     subsolver_solved, subsolver_stats, subiter = subsolve!(solver.subsolver_type, solver, s, zero(T), n, subsolver_verbose)
-    if !subsolver_solved
-      @warn("Subsolver failed to solve the shifted system")
-      break
-    end
+    # if !subsolver_solved
+    #   @warn("Subsolver failed to solve the shifted system")
+    #   done = true
+    #   continue
+    # end
     slope = dot(s, ∇fk) # = -∇fkᵀ s because we flipped the sign of ∇fk
     mul!(Hs, H, s)
     curv = dot(s, Hs)
     norm_s = norm(s)
 
     ΔTk = slope - curv / 2
+    # @assert ΔTk > 0 "Cauchy decrease test fails"
+
     cx .= x .+ s
     fck = obj(nlp, cx)
 

@@ -14,10 +14,10 @@ nlp = ADNLPModel(f, x0)
 
 
 
-println("======================================================================")
+# println("======================================================================")
 
-stats3 = R2N(nlp, subsolver_type= CgLanczosShiftSolver ,verbose=1, max_iter=10)
-println("CgLanczosShiftSolver _ ADNLPModel status = ", stats3)
+# stats3 = R2N(nlp, subsolver_type= CgLanczosShiftSolver ,verbose=1, max_iter=10)
+# println("CgLanczosShiftSolver _ ADNLPModel status = ", stats3)
 
 
 # f(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
@@ -49,3 +49,8 @@ println("======================================================================"
 stats3 = R2N(nlp, subsolver_type=CgSolver ,verbose=1, max_iter=10)
 println("CG _ ADNLPModel status = ", stats3)
 
+
+
+println("======================================================================")
+stats4 = R2N(nlp, subsolver_type= CrSolver ,verbose=100, max_iter=1000)
+println("CR _ ADNLPModel status = ", stats4)
