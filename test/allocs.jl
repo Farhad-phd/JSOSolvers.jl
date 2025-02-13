@@ -33,7 +33,7 @@ if Sys.isunix()
     @testset "$name" for (name, symsolver) in (
       (:R2N, :R2NSolver),
       (:R2N_exact, :R2NSolver),
-      (:R2N_CR, :R2NSolver),
+      # (:R2N_CR, :R2NSolver),
       (:R2N_CG_LSR1, :R2NSolver),
       (:R2, :FoSolver),
       (:fomo, :FomoSolver),

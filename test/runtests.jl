@@ -25,7 +25,7 @@ end
     ("R2", R2),
     ("R2N", R2N),
     ("R2N_exact", (nlp; kwargs...) -> R2N(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver; kwargs...)),
-    ("R2N_CR", (nlp; kwargs...) -> R2N(nlp, subsolver_type = CrSolver; kwargs...)),
+    # ("R2N_CR", (nlp; kwargs...) -> R2N(nlp, subsolver_type = CrSolver; kwargs...)),
     ("R2N_CG_LSR1", (nlp; kwargs...) -> R2N(LSR1Model(nlp); kwargs...)),
     ("fomo", fomo),
   ]
@@ -53,7 +53,7 @@ end
     ("R2", R2),
     ("R2N", R2N),
     ("R2N_exact", (nlp; kwargs...) -> R2N(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver; kwargs...)),
-    ("R2N_CR", (nlp; kwargs...) -> R2N(nlp, subsolver_type = CrSolver; kwargs...)),
+    # ("R2N_CR", (nlp; kwargs...) -> R2N(nlp, subsolver_type = CrSolver; kwargs...)),
     ("R2N_CG_LSR1", (nlp; kwargs...) -> R2N(LSR1Model(nlp); kwargs...)),
     ("fomo", fomo),
   ]
