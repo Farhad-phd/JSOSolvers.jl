@@ -33,6 +33,8 @@ if Sys.isunix()
     @testset "$name" for (name, symsolver) in (
       (:R2N, :R2NSolver),
       (:R2N_exact, :R2NSolver),
+      (:R2N_CR, :R2NSolver),
+      (:R2N_CG_LSR1, :R2NSolver),
       (:R2, :FoSolver),
       (:fomo, :FomoSolver),
       (:lbfgs, :LBFGSSolver),
@@ -46,6 +48,10 @@ if Sys.isunix()
             solver = eval(symsolver)(nlp; M = 2) # nonmonotone configuration allocates extra memory
           elseif name == :R2N_exact
             solver = eval(symsolver)(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
+          elseif name == :R2N_CR
+            solver = eval(symsolver)(nlp, subsolver_type = CrSolver)
+          elseif name == :R2N_CG_LSR1
+            solver = eval(symsolver)(LSR1Model(nlp))
           else
             solver = eval(symsolver)(nlp)
           end

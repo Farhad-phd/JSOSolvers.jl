@@ -12,6 +12,9 @@ x0 = [T(0)]
 f(x) = -exp(x[1])
 nlp = ADNLPModel(f, x0)
 
+println("======================================================================")
+stats3 = R2N(nlp, subsolver_type=CgSolver ,verbose=1, max_iter=10)
+println("CG _ ADNLPModel status = ", stats3)
 
 
 # println("======================================================================")
