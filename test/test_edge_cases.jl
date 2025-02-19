@@ -49,16 +49,3 @@ end
     R2N(nlp; subsolver_type = ShiftedLBFGSSolver)
   end
 end
-
-# 4. Test error when subsolver_type is not a subtype of R2N_allowed_subsolvers
-@testset "Invalid subsolver type Error" begin
-  f(x) = (x[1] - 1)^2 + 4 * (x[2] - x[1]^2)^2
-  nlp = ADNLPModel(f, [-1.2; 1.0])
-
-  @test_throws ErrorException begin
-    R2NSolver(nlp; subsolver_type = CgSolver)
-  end
-  @test_throws ErrorException begin
-    R2N(nlp; subsolver_type = CgSolver)
-  end
-end

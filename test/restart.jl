@@ -1,6 +1,8 @@
 @testset "Test restart with a different initial guess: $fun" for (fun, s) in (
-  # (:R2N, :R2NSolver),
+  (:R2N, :R2NSolver),
   (:R2N_exact, :R2NSolver),
+  (:R2N_CR, :R2NSolver),
+  (:R2N_CG_LSR1, :R2NSolver),
   (:R2, :FoSolver),
   (:fomo, :FomoSolver),
   (:lbfgs, :LBFGSSolver),
@@ -12,6 +14,10 @@
   if fun == :R2N_exact
     nlp = LBFGSModel(nlp)
     solver = eval(s)(nlp,subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
+  elseif fun == :R2N_CR
+    solver = eval(s)(nlp,subsolver_type = CrSolver)
+  elseif fun == :R2N_CG_LSR1
+    solver = eval(s)(LSR1Model(nlp))
   else 
     solver = eval(s)(nlp)
   end
@@ -52,8 +58,10 @@ end
 end
 
 @testset "Test restart with a different problem: $fun" for (fun, s) in (
-  # (:R2N, :R2NSolver),
+  (:R2N, :R2NSolver),
   (:R2N_exact, :R2NSolver),
+  (:R2N_CR, :R2NSolver),
+  (:R2N_CG_LSR1, :R2NSolver),
   (:R2, :FoSolver),
   (:fomo, :FomoSolver),
   (:lbfgs, :LBFGSSolver),
@@ -65,6 +73,10 @@ end
   if fun == :R2N_exact
     nlp = LBFGSModel(nlp)
     solver = eval(s)(nlp,subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
+  elseif fun == :R2N_CR
+    solver = eval(s)(nlp,subsolver_type = CrSolver)
+  elseif fun == :R2N_CG_LSR1
+    solver = eval(s)(LSR1Model(nlp))
   else 
     solver = eval(s)(nlp) 
   end
