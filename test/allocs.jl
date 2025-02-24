@@ -34,6 +34,7 @@ if Sys.isunix()
       (:R2N, :R2NSolver),
       (:R2N_exact, :R2NSolver),
       (:R2N_CR, :R2NSolver),
+      (:R2N_MINRES, :R2NSolver),
       (:R2N_CG_LSR1, :R2NSolver),
       (:R2, :FoSolver),
       (:fomo, :FomoSolver),
@@ -50,6 +51,8 @@ if Sys.isunix()
             solver = eval(symsolver)(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
           elseif name == :R2N_CR
             solver = eval(symsolver)(nlp, subsolver_type = CrSolver)
+          elseif name == :R2N_MINRES
+            solver = eval(symsolver)(nlp, subsolver_type = MinresSolver)
           elseif name == :R2N_CG_LSR1
             solver = eval(symsolver)(LSR1Model(nlp))
           else

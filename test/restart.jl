@@ -2,6 +2,7 @@
   (:R2N, :R2NSolver),
   (:R2N_exact, :R2NSolver),
   (:R2N_CR, :R2NSolver),
+  (:R2N_MINRES, :R2NSolver),
   (:R2N_CG_LSR1, :R2NSolver),
   (:R2, :FoSolver),
   (:fomo, :FomoSolver),
@@ -16,6 +17,8 @@
     solver = eval(s)(nlp,subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
   elseif fun == :R2N_CR
     solver = eval(s)(nlp,subsolver_type = CrSolver)
+  elseif fun == :R2N_MINRES
+    solver = eval(s)(nlp,subsolver_type = MinresSolver)    
   elseif fun == :R2N_CG_LSR1
     solver = eval(s)(LSR1Model(nlp))
   else 
@@ -61,6 +64,7 @@ end
   (:R2N, :R2NSolver),
   (:R2N_exact, :R2NSolver),
   (:R2N_CR, :R2NSolver),
+  (:R2N_MINRES, :R2NSolver),
   (:R2N_CG_LSR1, :R2NSolver),
   (:R2, :FoSolver),
   (:fomo, :FomoSolver),
@@ -75,6 +79,8 @@ end
     solver = eval(s)(nlp,subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
   elseif fun == :R2N_CR
     solver = eval(s)(nlp,subsolver_type = CrSolver)
+  elseif fun == :R2N_MINRES
+    solver = eval(s)(nlp,subsolver_type = MinresSolver)
   elseif fun == :R2N_CG_LSR1
     solver = eval(s)(LSR1Model(nlp))
   else 

@@ -14,7 +14,7 @@ struct ShiftedLBFGSSolver <: AbstractShiftedLBFGSSolver
   # Shifted LBFGS-specific fields
 end
 
-const R2N_allowed_subsolvers = [CgSolver, CrSolver, ShiftedLBFGSSolver]
+const R2N_allowed_subsolvers = [CgSolver, CrSolver, ShiftedLBFGSSolver, MinresSolver]
 # const R2N_allowed_subsolvers = [CgLanczosShiftSolver, MinresSolver, ShiftedLBFGSSolver]
 
 """
@@ -527,6 +527,7 @@ function subsolve!(subsolver::MinresSolver, R2N::R2NSolver, s, atol, n, subsolve
     atol = atol,
     rtol = subtol,
     verbose = subsolver_verbose,
+    linesearch = true,
   )
   s .= subsolver.x
   return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
