@@ -105,7 +105,7 @@ For advanced usage, first define a `R2NSolver` to preallocate the memory used in
 - `atol::T = √eps(T)`: absolute tolerance.
 - `rtol::T = √eps(T)`: relative tolerance: algorithm stops when ‖∇f(xᵏ)‖ ≤ atol + rtol * ‖∇f(x⁰)‖.
 - `η1 = eps(T)^(1/4)`, `η2 = T(0.95)`: step acceptance parameters.
-- `γ1 = T(1/2)`, `γ2 = 1/γ1`: regularization update parameters.
+- `λ = 2.0`: regularization update parameter.
 - `σmin = eps(T)`: step parameter for R2N algorithm.
 - `max_eval::Int = -1`: maximum number of evaluation of the objective function.
 - `max_time::Float64 = 30.0`: maximum time limit in seconds.
