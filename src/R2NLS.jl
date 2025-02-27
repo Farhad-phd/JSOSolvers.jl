@@ -20,7 +20,7 @@ mutable struct R2NLSSolver{T, V, Op <: AbstractLinearOperator{T}, Sub <: KrylovS
   A::Op
   subsolver::Sub
   obj_vec::V # used for non-monotone behaviour
-  cgtol::T
+  subtol::T
   σ::T
   μ::T
 end
@@ -32,10 +32,10 @@ function R2NLSSolver(
 ) where {T, V}
   subsolver_type in R2NLS_allowed_subsolvers ||
     error("subproblem solver must be one of $(R2NLS_allowed_subsolvers)")
-
+  non_mono_size >= 1 || error("non_mono_size must be greater than or equal to 1")
+  
   nvar = nlp.meta.nvar
   nequ = nlp.nls_meta.nequ
-
   x = V(undef, nvar)
   xt = V(undef, nvar)
   temp = V(undef, nequ)
@@ -48,10 +48,9 @@ function R2NLSSolver(
   Op = typeof(A)
   subsolver = subsolver_type(nequ, nvar, V)
   Sub = typeof(subsolver)
-
   σ = zero(T)
   μ = zero(T)
-  cgtol = one(T) # must be ≤ 1.0
+  subtol = one(T) # must be ≤ 1.0
   obj_vec = fill(typemin(T), non_mono_size)
 
   return R2NLSSolver{T, V, Op, Sub}(
@@ -66,7 +65,7 @@ function R2NLSSolver(
     A,
     subsolver,
     obj_vec,
-    cgtol,
+    subtol,
     σ,
     μ,
   )
@@ -79,7 +78,7 @@ end
 function SolverCore.reset!(solver::R2NLSSolver{T}, nlp::AbstractNLSModel) where {T}
   fill!(solver.obj_vec, typemin(T))
   solver.A = jac_op_residual!(nlp, solver.x, solver.Av, solver.Atv)
-  solver.cgtol = one(T)
+  solver.subtol = one(T)
   solver
 end
 
@@ -115,32 +114,27 @@ function SolverCore.solve!(
   non_mono_size = 1,
 ) where {T, V}
   unconstrained(nlp) || error("R2NLS should only be called on unconstrained problems.")
-  if non_mono_size < 1
-    error("non_mono_size must be greater than or equal to 1")
-  end
-
   if !(nlp.meta.minimize)
     error("R2NLS only works for minimization problem")
   end
 
   reset!(stats)
+  assert!(λ > 1)
+  assert!(η1 > 0 && η1 < 1)
   start_time = time()
   set_time!(stats, 0.0)
   μmin = σmin
-
   n = nlp.nls_meta.nvar
   m = nlp.nls_meta.nequ
-
   x = solver.x .= x
   xt = solver.xt
   ∇f = solver.gx # k-1
   subsolver = solver.subsolver
   r, rt = solver.Fx, solver.rt
-  # s = solver.s #TODO I do not need this 
-  cgtol = solver.cgtol
+  s = solver.s 
+  subtol = solver.subtol
   σk = solver.σ
   μk = solver.μ
-
   residual!(nlp, x, r)
   f, ∇f = objgrad!(nlp, x, ∇f, r, recompute = false)
 
@@ -153,6 +147,9 @@ function SolverCore.solve!(
   σk = μk * norm_∇fk
 
   # Stopping criterion: 
+  fmin = min(-one(T), f0) / eps(T)
+  unbounded = f < fmin
+
   ϵ = atol + rtol * norm_∇fk
   ϵF = Fatol + Frtol * 2 * √f
 
@@ -202,16 +199,16 @@ function SolverCore.solve!(
 
   solver.σ = σk
   solver.μ = μk
-  solver.cgtol = cgtol
+  solver.subtol = subtol
 
   callback(nlp, solver, stats)
 
-  cgtol = solver.cgtol
+  subtol = solver.subtol
   σk = solver.σ
   μk = solver.μ
 
   done = stats.status != :unknown
-  cgtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * cgtol))
+  subtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * subtol))
 
   while !done
     temp .= .-r
@@ -220,39 +217,33 @@ function SolverCore.solve!(
       A,
       temp,
       atol = atol,
-      rtol = cgtol,
+      rtol = subtol,
       λ = √(σk), # sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
       itmax = max(2 * (n + m), 50),
       timemax = max_time - stats.elapsed_time,
       verbose = subsolver_verbose,
     )
-    s, cg_stats = subsolver.x, subsolver.stats
-    norm_s = norm(s) #TODO not need this 
+    s, sub_stats = subsolver.x, subsolver.stats
 
     # Compute actual vs. predicted reduction.
-    # copyaxpy!(n, one(T), s, x, xt) # xt = x + s
     xt .= x .+ s
-    mul!(temp, A, s) # do we update A?
+    mul!(temp, A, s) 
     slope = dot(r, temp)
     curv = dot(temp, temp)
     residual!(nlp, xt, rt)
     fck = obj(nlp, x, rt, recompute = false)
-    # fck = obj(nlp, xt)
-    #TODO fix the slope and curv
 
-    # ΔTk = (slope + curv ) / 2  # TODO in Youssef paper they use σ/2 * norm(s)^2  - σk^2 * norm_s^2
     ΔTk = -slope - curv / 2  # TODO in Youssef paper they use σ/2 * norm(s)^2  - σk^2 * norm_s^2
 
     if fck == -Inf
       set_status!(stats, :unbounded)
       break
     end
-    #TODO fix this 
     if non_mono_size > 1  #non-monotone behaviour
       k = mod(stats.iter, non_mono_size) + 1
       solver.obj_vec[k] = stats.objective
       fck_max = maximum(solver.obj_vec)
-      ρk = (fck_max - fck) / (fck_max - fck + ΔTk)
+      ρk = (fck_max - fck) / (fck_max - stats.objective + ΔTk)
     else
       ρk = (stats.objective - fck) / ΔTk
     end
@@ -275,18 +266,16 @@ function SolverCore.solve!(
     set_iter!(stats, stats.iter + 1)
     set_time!(stats, time() - start_time)
 
-    cgtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * cgtol))
+    subtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * subtol))
 
     solver.σ = σk
     solver.μ = μk
-    solver.cgtol = cgtol
+    solver.subtol = subtol
     callback(nlp, solver, stats)
     σk = solver.σ
     μk = solver.μ
-    cgtol = solver.cgtol
-
-    ∇fk = solver.gx
-    norm_∇fk = norm(∇fk)
+    subtol = solver.subtol
+    norm_∇fk = stats.dual_feas # if the user change it, they just change the stats.norm , they also have to change subtol
     set_dual_residual!(stats, norm_∇fk)
     σk = μk * norm_∇fk
 
