@@ -347,7 +347,6 @@ function SolverCore.solve!(
         :sigma,
         :rho,
         :subtol,
-        :norm_s,
         :slope,
         :sub_iter,
         :dir,
@@ -355,7 +354,6 @@ function SolverCore.solve!(
       ],
       [
         Int,
-        Float64,
         Float64,
         Float64,
         Float64,
@@ -374,7 +372,6 @@ function SolverCore.solve!(
         :sigma => "σ",
         :rho => "ρ",
         :subtol => "subtol",
-        :norm_s => "‖s‖",
         :slope => "slope",
         :sub_iter => "subiter",
         :dir => "dir",
@@ -392,7 +389,6 @@ function SolverCore.solve!(
       σk,
       ρk,
       subtol,
-      0.0,
       0.0,
       0,
       " ",
@@ -414,7 +410,6 @@ function SolverCore.solve!(
     if( !subsolver_solved  ) && stats.iter > 0
       #TODO use Airmi in subsolver or wolfe or goldstein
       s .= atol* T(0.1) * ∇fk
-      norm_s = norm(s) #TODO expensive or underflow or..
     end
     slope = dot(s, ∇fk) # = -∇fkᵀ s because we flipped the sign of ∇fk
     mul!(Hs, H, s)
@@ -479,7 +474,6 @@ function SolverCore.solve!(
         σk,                    # Sigma value
         ρk,                    # Rho value
         subtol,                 # subtol
-        norm_s,                # Norm of the step
         slope,                 # Slope
         subiter,          # Subsolver iteration
         step_accepted ? "↘" : "↗", # Step acceptance status
