@@ -409,10 +409,9 @@ function SolverCore.solve!(
     subsolver_solved, subsolver_stats, subiter =
       subsolve!(solver.subsolver_type, solver, s, zero(T), n, subsolver_verbose)
     
-    norm_s = norm(s) #TODO expensive or underflow or..  
-  
+
     
-    if( !subsolver_solved || norm_s == 0 ) && stats.iter > 0
+    if( !subsolver_solved  ) && stats.iter > 0
       #TODO use Airmi in subsolver or wolfe or goldstein
       s .= atol* T(0.1) * ∇fk
       norm_s = norm(s) #TODO expensive or underflow or..
