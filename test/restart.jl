@@ -109,12 +109,30 @@ end
 @testset "Test restart NLS with a different problem: $fun" for (fun, s) in (
   (:tron, :TronSolverNLS),
   (:trunk, :TrunkSolverNLS),
+  (:R2NSolverNLS, :R2NSolverNLS),
+  (:R2NSolverNLS_CG, :R2NSolverNLS),
+  (:R2NSolverNLS_LSQR, :R2NSolverNLS),
+  (:R2NSolverNLS_CR, :R2NSolverNLS),
+  (:R2NSolverNLS_LSMR, :R2NSolverNLS),
+  (:R2NSolverNLS_QRMumps, :R2NSolverNLS)
 )
   F(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
   nlp = ADNLSModel(F, [-1.2; 1.0], 2)
 
   stats = GenericExecutionStats(nlp)
-  solver = eval(s)(nlp)
+  if name == :R2NSolverNLS_CG
+    solver = eval(s)(nlp, subsolver_type = CGSolver)
+  elseif name == :R2NSolverNLS_LSQR
+    solver = eval(s)(nlp, subsolver_type = LSQRSolver)
+  elseif name == :R2NSolverNLS_CR
+    solver = eval(s)(nlp, subsolver_type = CrSolver)
+  elseif name == :R2NSolverNLS_LSMR
+    solver = eval(s)(nlp, subsolver_type = LSMRSolver)
+  elseif name == :R2NSolverNLS_QRMumps
+    solver = eval(s)(nlp, subsolver_type = QRMumpsSolver)
+  else
+    solver = eval(s)(nlp)
+  end
   stats = SolverCore.solve!(solver, nlp, stats)
   @test stats.status == :first_order
   @test isapprox(stats.solution, [1.0; 1.0], atol = 1e-6)
