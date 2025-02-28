@@ -248,6 +248,7 @@ function SolverCore.solve!(
       nlp,
       elapsed_time = stats.elapsed_time,
       optimal = optimal,
+      unbounded = unbounded,
       max_eval = max_eval,
       iter = stats.iter,
       small_residual = small_residual,
@@ -294,10 +295,6 @@ function SolverCore.solve!(
 
     ΔTk = -slope - curv / 2  # TODO in Youssef paper they use σ/2 * norm(s)^2  - σk^2 * norm_s^2
 
-    if fck == -Inf
-      set_status!(stats, :unbounded)
-      break
-    end
     if non_mono_size > 1  #non-monotone behaviour
       k = mod(stats.iter, non_mono_size) + 1
       solver.obj_vec[k] = stats.objective
@@ -317,6 +314,7 @@ function SolverCore.solve!(
       f = fck
       grad!(nlp, x, ∇f)
       set_objective!(stats, fck)
+      unbounded = fck < fmin
       norm_∇fk = norm(∇f)
     else
       μk = μk * λ
@@ -352,6 +350,7 @@ function SolverCore.solve!(
         nlp,
         elapsed_time = stats.elapsed_time,
         optimal = optimal,
+        unbounded = unbounded,
         small_residual = small_residual,
         max_eval = max_eval,
         iter = stats.iter,

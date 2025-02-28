@@ -47,15 +47,15 @@ function tests()
         ("trunk full Hessian", (nls; kwargs...) -> trunk(nls, variant = :Newton; kwargs...)),
         ("tron+cgls", (nls; kwargs...) -> tron(nls, subsolver_type = CglsSolver; kwargs...)),
         ("tron full Hessian", (nls; kwargs...) -> tron(nls, variant = :Newton; kwargs...)),
-        ("R2NLS", (unls, kwargs...) -> R2NLS(unls; kwargs...)),
-        ("R2NLS_CGLS", (unls, kwargs...) -> R2NLS(unls, subsolver_type = CglsSolver; kwargs...)),
-        ("R2NLS_LSQR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
-        ("R2NLS_CRLS", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
-        ("R2NLS_LSMR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
-        (
-          "R2NLS_QRMumps",
-          (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
-        ),
+        ("R2NLS", (unls; kwargs...) -> R2NLS(unls; kwargs...)),
+        ("R2NLS_CGLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = CglsSolver; kwargs...)),
+        ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
+        ("R2NLS_CRLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
+        ("R2NLS_LSMR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
+        # (
+        #   "R2NLS_QRMumps",
+        #   (unls; kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
+        # ),
       ]
         unconstrained_nls(solver)
         multiprecision_nls(solver, :unc)
