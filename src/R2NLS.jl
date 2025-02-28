@@ -1,6 +1,6 @@
 export R2NLS, R2NLSSolver
 
-const R2NLS_allowed_subsolvers = [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver, QRMumps]
+const R2NLS_allowed_subsolvers = [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver, QRMumpsSolver]
 
 """
     R2NLS(nlp; kwargs...)
