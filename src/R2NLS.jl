@@ -5,7 +5,65 @@ const R2NLS_allowed_subsolvers = [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver
 """
     R2NLS(nlp; kwargs...)
 
-TODO add docstring
+An inexact second-order quadratic regularization method designed specifically for nonlinear least-squares problems.
+
+The objective is to solve
+
+    min ½‖F(x)‖²
+
+where `F: ℝⁿ → ℝᵐ` is a vector-valued function defining the least-squares residuals.
+
+For advanced usage, first create a `R2NLSolver` to preallocate the necessary memory for the algorithm, and then call `solve!`:
+
+    solver = R2NLSolver(nlp)
+    solve!(solver, nlp; kwargs...)
+
+# Arguments
+- `nlp::AbstractNLPModel{T, V}` is the nonlinear least-squares model to solve. See `NLPModels.jl` for additional details.
+
+# Keyword Arguments
+- `x::V = nlp.meta.x0`: the initial guess.
+- `atol::T = √eps(T)`: absolute tolerance.
+- `rtol::T = √eps(T)`: relative tolerance; the algorithm stops when ‖J(x)ᵀF(x)‖ ≤ atol + rtol * ‖J(x₀)ᵀF(x₀)‖.
+- `η1 = eps(T)^(1/4)`, `η2 = T(0.95)`: step acceptance parameters.
+- `λ = 2.0`: regularization update parameter.
+- `σmin = eps(T)`: minimum step parameter for the R2NLS algorithm.
+- `max_eval::Int = -1`: maximum number of objective function evaluations.
+- `max_time::Float64 = 30.0`: maximum allowed time in seconds.
+- `max_iter::Int = typemax(Int)`: maximum number of iterations.
+- `verbose::Int = 0`: if > 0, displays iteration details every `verbose` iterations.
+- `subsolver_type::Union{Type{<:KrylovSolver}, Type{ShiftedLBFGSSolver}} = ShiftedLBFGSSolver`: the subsolver used to solve the shifted linear system. (Note: the `CgSolver` can solve the shifted system exactly at each iteration when `nlp` is an `LBFGSModel`.)
+- `subsolver_verbose::Int = 0`: if > 0, displays subsolver iteration details every `subsolver_verbose` iterations when a KrylovSolver type is selected.
+
+See `JSOSolvers.R2N_allowed_subsolvers` for a list of available subsolvers.
+
+# Output
+Returns a `GenericExecutionStats` object containing statistics and information about the optimization process (see `SolverCore.jl`).
+
+# Callback
+$(Callback_docstring)
+
+# Examples
+```jldoctest
+using JSOSolvers, ADNLPModels
+nlp = ADNLPModel(x -> [sin(x[1]); cos(x[1])], [1.0])
+stats = R2NLS(nlp)
+
+# output
+
+"Execution stats: first-order stationary"
+```
+
+```jldoctest
+using JSOSolvers, ADNLPModels
+nlp = ADNLPModel(x -> [sin(x[1]); cos(x[1])], [1.0])
+solver = R2NLSolver(nlp)
+stats = solve!(solver, nlp)
+
+# output
+
+"Execution stats: first-order stationary"
+```
 """
 mutable struct R2NLSSolver{T, V, Op <: AbstractLinearOperator{T}, Sub <: KrylovSolver{T, T, V}} <:
                AbstractOptimizationSolver

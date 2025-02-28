@@ -48,7 +48,8 @@ if Sys.isunix()
           if (name == :FoSolver || name == :FomoSolver)
             solver = eval(symsolver)(nlp; M = 2) # nonmonotone configuration allocates extra memory
           elseif name == :R2N_exact
-            solver = eval(symsolver)(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
+            solver =
+              eval(symsolver)(LBFGSModel(nlp), subsolver_type = JSOSolvers.ShiftedLBFGSSolver)
           elseif name == :R2N_CR
             solver = eval(symsolver)(nlp, subsolver_type = CrSolver)
           elseif name == :R2N_MINRES
@@ -75,11 +76,32 @@ if Sys.isunix()
       end
     end
 
-    @testset "$symsolver" for symsolver in (:TrunkSolverNLS, :TronSolverNLS)
+    @testset "$name" for (name, symsolver) in (
+      (:TrunkSolverNLS, :TrunkSolverNLS),
+      (:R2NSolverNLS, :R2NSolverNLS),
+      (:R2NSolverNLS_CG, :R2NSolverNLS),
+      (:R2NSolverNLS_LSQR, :R2NSolverNLS),
+      (:R2NSolverNLS_CR, :R2NSolverNLS),
+      (:R2NSolverNLS_LSMR, :R2NSolverNLS),
+      (:R2NSolverNLS_QRMumps, :R2NSolverNLS),
+      (:TronSolverNLS, :TronSolverNLS),
+    )
       for model in NLPModelsTest.nls_problems
         nlp = eval(Meta.parse(model))()
         if unconstrained(nlp) || (bound_constrained(nlp) && (symsolver == :TronSolverNLS))
-          solver = eval(symsolver)(nlp)
+          if name == :R2NSolverNLS_CG
+            solver = eval(symsolver)(nlp, subsolver_type = CGSolver)
+          elseif name == :R2NSolverNLS_LSQR
+            solver = eval(symsolver)(nlp, subsolver_type = LSQRSolver)
+          elseif name == :R2NSolverNLS_CR
+            solver = eval(symsolver)(nlp, subsolver_type = CrSolver)
+          elseif name == :R2NSolverNLS_LSMR
+            solver = eval(symsolver)(nlp, subsolver_type = LSMRSolver)
+          elseif name == :R2NSolverNLS_QRMumps
+            solver = eval(symsolver)(nlp, subsolver_type = QRMumpsSolver)
+          else
+            solver = eval(symsolver)(nlp)
+          end
           stats = GenericExecutionStats(nlp)
           with_logger(NullLogger()) do
             SolverCore.solve!(solver, nlp, stats)

@@ -49,6 +49,7 @@ include("R2N.jl")
 
 # Unconstrained solvers for NLS
 include("trunkls.jl")
+include("R2NLS.jl")
 
 # List of keywords accepted by TRONTrustRegion
 const tron_keys = (
