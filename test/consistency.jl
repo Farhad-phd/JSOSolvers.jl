@@ -63,7 +63,7 @@ function consistency()
       ("trunk", trunk),
       ("R2NLS", (unls; kwargs...) -> R2NLS(unls; kwargs...)),
       ("R2NLS_CGLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = CglsSolver; kwargs...)),
-      ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
+      ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_CRLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_LSMR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
       # (
@@ -91,7 +91,7 @@ function consistency()
       ("trunk", trunk),
       ("R2NLS", (unls; kwargs...) -> R2NLS(unls; kwargs...)),
       ("R2NLS_CGLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = CglsSolver; kwargs...)),
-      ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
+      ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_CRLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_LSMR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
       # (

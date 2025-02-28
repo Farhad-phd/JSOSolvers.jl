@@ -78,26 +78,26 @@ if Sys.isunix()
 
     @testset "$name" for (name, symsolver) in (
       (:TrunkSolverNLS, :TrunkSolverNLS),
-      (:R2NSolverNLS, :R2NSolverNLS),
-      (:R2NSolverNLS_CG, :R2NSolverNLS),
-      (:R2NSolverNLS_LSQR, :R2NSolverNLS),
-      (:R2NSolverNLS_CR, :R2NSolverNLS),
-      (:R2NSolverNLS_LSMR, :R2NSolverNLS),
-      # (:R2NSolverNLS_QRMumps, :R2NSolverNLS),
+      (:R2NLSSolver, :R2NLSSolver),
+      (:R2NLSSolver_CG, :R2NLSSolver),
+      (:R2NLSSolver_LSQR, :R2NLSSolver),
+      (:R2NLSSolver_CR, :R2NLSSolver),
+      (:R2NLSSolver_LSMR, :R2NLSSolver),
+      # (:R2NLSSolver_QRMumps, :R2NLSSolver),
       (:TronSolverNLS, :TronSolverNLS),
     )
       for model in NLPModelsTest.nls_problems
         nlp = eval(Meta.parse(model))()
         if unconstrained(nlp) || (bound_constrained(nlp) && (symsolver == :TronSolverNLS))
-          if name == :R2NSolverNLS_CG
+          if name == :R2NLSSolver_CG
             solver = eval(symsolver)(nlp, subsolver_type = CGSolver)
-          elseif name == :R2NSolverNLS_LSQR
-            solver = eval(symsolver)(nlp, subsolver_type = LSQRSolver)
-          elseif name == :R2NSolverNLS_CR
+          elseif name == :R2NLSSolver_LSQR
+            solver = eval(symsolver)(nlp, subsolver_type = LsqrSolver)
+          elseif name == :R2NLSSolver_CR
             solver = eval(symsolver)(nlp, subsolver_type = CrSolver)
-          elseif name == :R2NSolverNLS_LSMR
+          elseif name == :R2NLSSolver_LSMR
             solver = eval(symsolver)(nlp, subsolver_type = LSMRSolver)
-          # elseif name == :R2NSolverNLS_QRMumps
+          # elseif name == :R2NLSSolver_QRMumps
           #   solver = eval(symsolver)(nlp, subsolver_type = QRMumpsSolver)
           else
             solver = eval(symsolver)(nlp)

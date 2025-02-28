@@ -106,29 +106,29 @@ end
   @test isapprox(stats.solution, [0.0; 0.0], atol = 1e-6)
 end
 
-@testset "Test restart NLS with a different problem: $fun" for (fun, s) in (
+@testset "Test restart NLS with a different problem: $name" for (name, s) in (
   (:tron, :TronSolverNLS),
   (:trunk, :TrunkSolverNLS),
-  (:R2NSolverNLS, :R2NSolverNLS),
-  (:R2NSolverNLS_CG, :R2NSolverNLS),
-  (:R2NSolverNLS_LSQR, :R2NSolverNLS),
-  (:R2NSolverNLS_CR, :R2NSolverNLS),
-  (:R2NSolverNLS_LSMR, :R2NSolverNLS),
-  # (:R2NSolverNLS_QRMumps, :R2NSolverNLS)
+  (:R2NLSSolver, :R2NLSSolver),
+  (:R2NLSSolver_CG, :R2NLSSolver),
+  (:R2NLSSolver_LSQR, :R2NLSSolver),
+  (:R2NLSSolver_CR, :R2NLSSolver),
+  (:R2NLSSolver_LSMR, :R2NLSSolver),
+  # (:R2NLSSolver_QRMumps, :R2NLSSolver)
 )
   F(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
   nlp = ADNLSModel(F, [-1.2; 1.0], 2)
 
   stats = GenericExecutionStats(nlp)
-  if name == :R2NSolverNLS_CG
+  if name == :R2NLSSolver_CG
     solver = eval(s)(nlp, subsolver_type = CGSolver)
-  elseif name == :R2NSolverNLS_LSQR
-    solver = eval(s)(nlp, subsolver_type = LSQRSolver)
-  elseif name == :R2NSolverNLS_CR
+  elseif name == :R2NLSSolver_LSQR
+    solver = eval(s)(nlp, subsolver_type = LsqrSolver)
+  elseif name == :R2NLSSolver_CR
     solver = eval(s)(nlp, subsolver_type = CrSolver)
-  elseif name == :R2NSolverNLS_LSMR
+  elseif name == :R2NLSSolver_LSMR
     solver = eval(s)(nlp, subsolver_type = LSMRSolver)
-  # elseif name == :R2NSolverNLS_QRMumps
+  # elseif name == :R2NLSSolver_QRMumps
   #   solver = eval(s)(nlp, subsolver_type = QRMumpsSolver)
   else
     solver = eval(s)(nlp)

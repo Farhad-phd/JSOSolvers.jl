@@ -26,7 +26,7 @@ For advanced usage, first create a `R2NLSolver` to preallocate the necessary mem
 - `x::V = nlp.meta.x0`: the initial guess.
 - `atol::T = √eps(T)`: absolute tolerance.
 - `rtol::T = √eps(T)`: relative tolerance; the algorithm stops when ‖J(x)ᵀF(x)‖ ≤ atol + rtol * ‖J(x₀)ᵀF(x₀)‖.
-- `η1 = eps(T)^(1/4)`, `η2 = T(0.95)`: step acceptance parameters.
+- `η1 =T(0.0001) eps(T)^(1/4)`, `η2 =T(0.001) T(0.95)`: step acceptance parameters.
 - `λ = 2.0`: regularization update parameter.
 - `σmin = eps(T)`: minimum step parameter for the R2NLS algorithm.
 - `max_eval::Int = -1`: maximum number of objective function evaluations.
@@ -80,6 +80,7 @@ mutable struct R2NLSSolver{T, V, Op <: AbstractLinearOperator{T}, Sub <: KrylovS
   subsolver::Sub
   obj_vec::V # used for non-monotone behaviour
   subtol::T
+  s::V
   σ::T
   μ::T
 end
@@ -107,6 +108,7 @@ function R2NLSSolver(
   Op = typeof(A)
   subsolver = subsolver_type(nequ, nvar, V)
   Sub = typeof(subsolver)
+  s = V(undef, nvar)
   σ = zero(T)
   μ = zero(T)
   subtol = one(T) # must be ≤ 1.0
@@ -125,6 +127,7 @@ function R2NLSSolver(
     subsolver,
     obj_vec,
     subtol,
+    s,
     σ,
     μ,
   )
@@ -161,8 +164,8 @@ function SolverCore.solve!(
   rtol::T = √eps(T),
   Fatol::T = zero(T),
   Frtol::T = zero(T),
-  η1 = eps(T)^(1 / 4),
-  η2 = T(0.95),
+  η1 = T(0.0001), # eps(T)^(1 / 4),
+  η2 = T(0.001),#T(0.95),
   λ = T(2),
   σmin = zero(T),
   max_time::Float64 = 30.0,
@@ -178,8 +181,8 @@ function SolverCore.solve!(
   end
 
   reset!(stats)
-  assert!(λ > 1)
-  assert!(η1 > 0 && η1 < 1)
+  @assert(λ > 1)
+  @assert(η1 > 0 && η1 < 1)
   start_time = time()
   set_time!(stats, 0.0)
   μmin = σmin
@@ -196,6 +199,7 @@ function SolverCore.solve!(
   μk = solver.μ
   residual!(nlp, x, r)
   f, ∇f = objgrad!(nlp, x, ∇f, r, recompute = false)
+  f0 = f
 
   # preallocate storage for products with A and A'
   A = solver.A # jac_op_residual!(nlp, x, Av, Atv)
@@ -204,6 +208,7 @@ function SolverCore.solve!(
   norm_∇fk = norm(∇f)
   μk = 2^round(log2(norm_∇fk + 1))
   σk = μk * norm_∇fk
+  ρk = zero(T)
 
   # Stopping criterion: 
   fmin = min(-one(T), f0) / eps(T)
@@ -235,11 +240,11 @@ function SolverCore.solve!(
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
     @info log_header(
-      [:iter, :f, :dual, :μ, :σ, :ρ, :dir],
-      [Int, Float64, Float64, Float64, Float64, Float64],
-      hdr_override = Dict(:f => "f(x)", :dual => "‖∇f‖", :dir => "dir"),
+      [:iter, :f, :dual, :μ, :σ, :ρ, :dir,:sub_status],
+      [Int, Float64, Float64, Float64, Float64, Float64,String,String],
+      hdr_override = Dict(:f => "f(x)", :dual => "‖∇f‖", :dir => "dir", :sub_status => "status"),
     )
-    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, " "])
+    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, " ", " "])
   end
 
   set_status!(
@@ -257,6 +262,7 @@ function SolverCore.solve!(
     ),
   )
 
+  subtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * subtol))
   solver.σ = σk
   solver.μ = μk
   solver.subtol = subtol
@@ -268,7 +274,6 @@ function SolverCore.solve!(
   μk = solver.μ
 
   done = stats.status != :unknown
-  subtol = max(rtol, min(T(0.1), √norm_∇fk, T(0.9) * subtol))
 
   while !done
     temp .= .-r
@@ -278,7 +283,7 @@ function SolverCore.solve!(
       temp,
       atol = atol,
       rtol = subtol,
-      λ = √(σk), # sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
+      λ = √(σk)/2, # sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
       itmax = max(2 * (n + m), 50),
       timemax = max_time - stats.elapsed_time,
       verbose = subsolver_verbose,
@@ -294,6 +299,7 @@ function SolverCore.solve!(
     fck = obj(nlp, x, rt, recompute = false)
 
     ΔTk = -slope - curv / 2  # TODO in Youssef paper they use σ/2 * norm(s)^2  - σk^2 * norm_s^2
+    
 
     if non_mono_size > 1  #non-monotone behaviour
       k = mod(stats.iter, non_mono_size) + 1
@@ -328,12 +334,14 @@ function SolverCore.solve!(
     solver.σ = σk
     solver.μ = μk
     solver.subtol = subtol
+    set_dual_residual!(stats, norm_∇fk)
+
     callback(nlp, solver, stats)
+    
     σk = solver.σ
     μk = solver.μ
     subtol = solver.subtol
     norm_∇fk = stats.dual_feas # if the user change it, they just change the stats.norm , they also have to change subtol
-    set_dual_residual!(stats, norm_∇fk)
     σk = μk * norm_∇fk
 
     optimal = norm_∇fk ≤ ϵ
@@ -341,7 +349,7 @@ function SolverCore.solve!(
 
     if verbose > 0 && mod(stats.iter, verbose) == 0
       dir_stat = step_accepted ? "↘" : "↗"
-      @info log_row(stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, dir_stat)
+      @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, dir_stat,sub_stats.status])
     end
 
     set_status!(
