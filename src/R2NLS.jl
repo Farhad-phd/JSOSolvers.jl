@@ -352,7 +352,10 @@ function SolverCore.solve!(
       @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk, dir_stat,sub_stats.status])
     end
 
-    set_status!(
+    if stats.status == :user
+      done = true
+    else
+      set_status!(
       stats,
       get_status(
         nlp,
@@ -364,9 +367,10 @@ function SolverCore.solve!(
         iter = stats.iter,
         max_iter = max_iter,
         max_time = max_time,
-      ),
-    )
-
+        ),
+      )
+    end
+    
     done = stats.status != :unknown
   end
 
