@@ -66,10 +66,10 @@ function consistency()
       ("R2NLS_LSQR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
       ("R2NLS_CRLS", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_LSMR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
-      (
-        "R2NLS_QRMumps",
-        (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
-      ),
+      # (
+      #   "R2NLS_QRMumps",
+      #   (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
+      # ),
     ]
       with_logger(NullLogger()) do
         stats = solver(unls; args...)
@@ -94,10 +94,10 @@ function consistency()
       ("R2NLS_LSQR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
       ("R2NLS_CRLS", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_LSMR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
-      (
-        "R2NLS_QRMumps",
-        (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
-      ),
+      # (
+      #   "R2NLS_QRMumps",
+      #   (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
+      # ),
     ]
       with_logger(NullLogger()) do
         stats = solver(qnls; args...)

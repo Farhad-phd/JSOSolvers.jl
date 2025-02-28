@@ -46,10 +46,10 @@ end
       ("R2NLS_LSQR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LSQRSolver; kwargs...)),
       ("R2NLS_CRLS", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
       ("R2NLS_LSMR", (unls, kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
-      (
-        "R2NLS_QRMumps",
-        (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
-      ),
+      # (
+      #   "R2NLS_QRMumps",
+      #   (unls, kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
+      # ),
     ]
     f(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
     nlp = ADNLSModel(f, [-1.2; 1.0], 2)

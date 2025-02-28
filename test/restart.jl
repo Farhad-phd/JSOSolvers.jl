@@ -114,7 +114,7 @@ end
   (:R2NSolverNLS_LSQR, :R2NSolverNLS),
   (:R2NSolverNLS_CR, :R2NSolverNLS),
   (:R2NSolverNLS_LSMR, :R2NSolverNLS),
-  (:R2NSolverNLS_QRMumps, :R2NSolverNLS)
+  # (:R2NSolverNLS_QRMumps, :R2NSolverNLS)
 )
   F(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
   nlp = ADNLSModel(F, [-1.2; 1.0], 2)
@@ -128,8 +128,8 @@ end
     solver = eval(s)(nlp, subsolver_type = CrSolver)
   elseif name == :R2NSolverNLS_LSMR
     solver = eval(s)(nlp, subsolver_type = LSMRSolver)
-  elseif name == :R2NSolverNLS_QRMumps
-    solver = eval(s)(nlp, subsolver_type = QRMumpsSolver)
+  # elseif name == :R2NSolverNLS_QRMumps
+  #   solver = eval(s)(nlp, subsolver_type = QRMumpsSolver)
   else
     solver = eval(s)(nlp)
   end
