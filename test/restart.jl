@@ -121,13 +121,13 @@ end
 
   stats = GenericExecutionStats(nlp)
   if name == :R2NLSSolver_CG
-    solver = eval(s)(nlp, subsolver_type = CGSolver)
+    solver = eval(s)(nlp, subsolver_type = CglsSolver)
   elseif name == :R2NLSSolver_LSQR
     solver = eval(s)(nlp, subsolver_type = LsqrSolver)
   elseif name == :R2NLSSolver_CR
-    solver = eval(s)(nlp, subsolver_type = CrSolver)
+    solver = eval(s)(nlp, subsolver_type = CrlsSolver)
   elseif name == :R2NLSSolver_LSMR
-    solver = eval(s)(nlp, subsolver_type = LSMRSolver)
+    solver = eval(s)(nlp, subsolver_type = LsmrSolver)
   # elseif name == :R2NLSSolver_QRMumps
   #   solver = eval(s)(nlp, subsolver_type = QRMumpsSolver)
   else

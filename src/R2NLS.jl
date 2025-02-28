@@ -33,7 +33,7 @@ For advanced usage, first create a `R2NLSolver` to preallocate the necessary mem
 - `max_time::Float64 = 30.0`: maximum allowed time in seconds.
 - `max_iter::Int = typemax(Int)`: maximum number of iterations.
 - `verbose::Int = 0`: if > 0, displays iteration details every `verbose` iterations.
-- `subsolver_type::Union{Type{<:KrylovSolver}, Type{ShiftedLBFGSSolver}} = ShiftedLBFGSSolver`: the subsolver used to solve the shifted linear system. (Note: the `CgSolver` can solve the shifted system exactly at each iteration when `nlp` is an `LBFGSModel`.)
+- `subsolver_type::Union{Type{<:KrylovSolver}, #TODO} = #TODO`: the subsolver used to solve the shifted linear system. 
 - `subsolver_verbose::Int = 0`: if > 0, displays subsolver iteration details every `subsolver_verbose` iterations when a KrylovSolver type is selected.
 
 See `JSOSolvers.R2N_allowed_subsolvers` for a list of available subsolvers.

@@ -88,7 +88,7 @@ ng0 = norm(grad(nlp, nlp.meta.x0))
 
 stats= R2N(nlp, atol = ϵ, rtol = ϵ, verbose =1, max_iter=20)
 println("====================================")
-stats_CR= R2N(nlp, atol = ϵ, rtol = ϵ, verbose =1, subsolver_type = CrSolver, max_iter=20, subsolver_verbose=0)
+stats_CR= R2N(nlp, atol = ϵ, rtol = ϵ, verbose =1, subsolver_type = CrlsSolver, max_iter=20, subsolver_verbose=0)
 
 
 primal, dual = kkt_checker(nlp, stats.solution)
