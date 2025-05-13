@@ -26,11 +26,23 @@ end
     @test stats.status == :max_iter
   end
 
-  @testset "$(fun)-NLS" for fun in (tron, trunk)
+  @testset "$(name)-NLS" for (name, solver) in [
+    ("trunk", trunk),
+    ("tron", tron),
+    ("R2NLS", (nlp; kwargs...) -> R2NLS(nlp; kwargs...)),
+    ("R2NLS_CGLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = CglsSolver; kwargs...)),
+    ("R2NLS_LSQR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
+    ("R2NLS_CRLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
+    ("R2NLS_LSMR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsmrSolver; kwargs...)),
+    # (
+    #   "R2NLS_QRMumps",
+    #   (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = QRMumpsSolver; kwargs...),
+    # ),
+  ]
     f(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
     nlp = ADNLSModel(f, [-1.2; 1.0], 2)
 
-    stats = eval(fun)(nlp, max_iter = 1)
+    stats = eval(solver)(nlp, max_iter = 1)
     @test stats.status == :max_iter
   end
 end
