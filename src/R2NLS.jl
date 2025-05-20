@@ -8,64 +8,6 @@ struct QRMumpsSolver <: AbstractQRMumpsSolver
   # Placeholder for QRMumpsSolver
 end
 
-# Dispatch for MinresSolver
-function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
-  ∇f_neg = R2NLS.gx
-  H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
-  σ = R2NLS.σ
-  subtol = R2NLS.subtol
-
-  minres!(
-    subsolver,
-    H,
-    ∇f_neg, # b
-    λ = σ,
-    itmax = max(2 * n, 50),
-    atol = atol,
-    rtol = subtol,
-    verbose = subsolver_verbose,
-    linesearch = true,
-  )
-  s .= subsolver.x
-  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
-end
-
-# Dispatch for KrylovSolver
-function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
-  Krylov.solve!(
-    subsolver,
-    R2NLS.Jx,
-    R2NLS.temp,
-    atol = atol,
-    rtol = R2NLS.subtol,
-    λ = √(R2NLS.σ) / 2, # or sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
-    itmax = max(2 * (n + m), 50),
-    timemax = max_time - stats.elapsed_time,
-    verbose = subsolver_verbose,
-  )
-  s .= subsolver.x
-  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
-end
-
-# Dispatch for QRMumpsSolver
-function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
-  #TODO GPU vs CPU 
-  QRMumps.qrm_init()
-  # Augmented matrix A_aug is (m+n)×n
-  A_aug = [
-    R2NLS.Jx
-    sqrt(R2NLS.σ) * I(n)
-  ]      # I(n): identity of size n
-  # Augmented right-hand side
-  b_aug = [
-    -R2NLS.Fx
-    zeros(n)
-  ]
-  spmat = qrm_spmat_init(A_aug)    # wrap in QRMumps format
-  s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
-  return true, "QRMumpsSolver", 0 #TODO fix this 
-end
-
 const R2NLS_allowed_subsolvers =
   [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver, MinresSolver, QRMumpsSolver]
 
@@ -75,8 +17,8 @@ An inexact second-order quadratic regularization method designed specifically fo
 The objective is to solve
     min ½‖F(x)‖²
 where `F: ℝⁿ → ℝᵐ` is a vector-valued function defining the least-squares residuals.
-For advanced usage, first create a `R2NLSolver` to preallocate the necessary memory for the algorithm, and then call `solve!`:
-    solver = R2NLSolver(nlp)
+For advanced usage, first create a `R2NLSSolver` to preallocate the necessary memory for the algorithm, and then call `solve!`:
+    solver = R2NLSSolver(nlp)
     solve!(solver, nlp; kwargs...)
 # Arguments
 - `nlp::AbstractNLPModel{T, V}` is the nonlinear least-squares model to solve. See `NLPModels.jl` for additional details.
@@ -112,7 +54,7 @@ stats = R2NLS(nlp)
 ```jldoctest
 using JSOSolvers, ADNLPModels
 nlp = ADNLPModel(x -> [sin(x[1]); cos(x[1])], [1.0])
-solver = R2NLSolver(nlp)
+solver = R2NLSSolver(nlp)
 stats = solve!(solver, nlp)
 # output
 "Execution stats: first-order stationary"
@@ -486,4 +428,63 @@ function SolverCore.solve!(
 
   set_solution!(stats, x)
   return stats
+end
+
+
+# Dispatch for MinresSolver
+function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+  ∇f_neg = R2NLS.gx
+  H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
+  σ = R2NLS.σ
+  subtol = R2NLS.subtol
+
+  minres!(
+    subsolver,
+    H,
+    ∇f_neg, # b
+    λ = σ,
+    itmax = max(2 * n, 50),
+    atol = atol,
+    rtol = subtol,
+    verbose = subsolver_verbose,
+    linesearch = true,
+  )
+  s .= subsolver.x
+  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
+end
+
+# Dispatch for KrylovSolver
+function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+  Krylov.solve!(
+    subsolver,
+    R2NLS.Jx,
+    R2NLS.temp,
+    atol = atol,
+    rtol = R2NLS.subtol,
+    λ = √(R2NLS.σ) / 2, # or sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
+    itmax = max(2 * (n + m), 50),
+    timemax = max_time - stats.elapsed_time,
+    verbose = subsolver_verbose,
+  )
+  s .= subsolver.x
+  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
+end
+
+# Dispatch for QRMumpsSolver
+function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+  #TODO GPU vs CPU 
+  QRMumps.qrm_init()
+  # Augmented matrix A_aug is (m+n)×n
+  A_aug = [
+    R2NLS.Jx
+    sqrt(R2NLS.σ) * I(n)
+  ]      # I(n): identity of size n
+  # Augmented right-hand side
+  b_aug = [
+    -R2NLS.Fx
+    zeros(n)
+  ]
+  spmat = qrm_spmat_init(A_aug)    # wrap in QRMumps format
+  s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
+  return true, "QRMumpsSolver", 0 #TODO fix this 
 end
