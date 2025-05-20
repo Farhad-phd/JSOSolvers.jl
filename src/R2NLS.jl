@@ -1,5 +1,6 @@
 export R2NLS, R2NLSSolver
 export QRMumpsSolver
+using QRMumps, SparseArrays
 
 abstract type AbstractQRMumpsSolver end
 
@@ -7,31 +8,66 @@ struct QRMumpsSolver <: AbstractQRMumpsSolver
   # Placeholder for QRMumpsSolver
 end
 
+# Dispatch for MinresSolver
+function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+  ∇f_neg = R2NLS.gx
+  H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
+  σ = R2NLS.σ
+  subtol = R2NLS.subtol
+
+  minres!(
+    subsolver,
+    H,
+    ∇f_neg, # b
+    λ = σ,
+    itmax = max(2 * n, 50),
+    atol = atol,
+    rtol = subtol,
+    verbose = subsolver_verbose,
+    linesearch = true,
+  )
+  s .= subsolver.x
+  return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
+end
+
 # Dispatch for KrylovSolver
-function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n,m, subsolver_verbose)
+function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
   Krylov.solve!(
     subsolver,
-      solver.Jx,
-      solver.temp,
-      atol = atol,
-      rtol = R2NLS.subtol,
-      λ = √(solver.σ / 2), # sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
-      itmax = max(2 * (n + m), 50),
-      timemax = max_time - stats.elapsed_time,
-      verbose = subsolver_verbose,
+    R2NLS.Jx,
+    R2NLS.temp,
+    atol = atol,
+    rtol = R2NLS.subtol,
+    λ = √(R2NLS.σ) / 2, # or sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
+    itmax = max(2 * (n + m), 50),
+    timemax = max_time - stats.elapsed_time,
+    verbose = subsolver_verbose,
   )
   s .= subsolver.x
   return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
 end
 
 # Dispatch for QRMumpsSolver
-function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n,m, subsolver_verbose)
-  # TODO
+function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+  #TODO GPU vs CPU 
+  QRMumps.qrm_init()
+  # Augmented matrix A_aug is (m+n)×n
+  A_aug = [
+    R2NLS.Jx
+    sqrt(R2NLS.σ) * I(n)
+  ]      # I(n): identity of size n
+  # Augmented right-hand side
+  b_aug = [
+    -R2NLS.Fx
+    zeros(n)
+  ]
+  spmat = qrm_spmat_init(A_aug)    # wrap in QRMumps format
+  s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
+  return true, "QRMumpsSolver", 0 #TODO fix this 
 end
 
-
-
-const R2NLS_allowed_subsolvers = [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver, MinresSolver, QRMumpsSolver]
+const R2NLS_allowed_subsolvers =
+  [CglsSolver, CrlsSolver, LsqrSolver, LsmrSolver, MinresSolver, QRMumpsSolver]
 
 """
     R2NLS(nlp; kwargs...)
@@ -82,8 +118,12 @@ stats = solve!(solver, nlp)
 "Execution stats: first-order stationary"
 ```
 """
-mutable struct R2NLSSolver{T, V, Op <: AbstractLinearOperator{T}, Sub <:Union{KrylovSolver{T, T, V}, QRMumpsSolver}} <:
-               AbstractOptimizationSolver
+mutable struct R2NLSSolver{
+  T,
+  V,
+  Op <: AbstractLinearOperator{T},
+  Sub <: Union{KrylovSolver{T, T, V}, QRMumpsSolver},
+} <: AbstractOptimizationSolver
   x::V
   xt::V
   temp::V
@@ -105,7 +145,7 @@ end
 function R2NLSSolver(
   nlp::AbstractNLSModel{T, V};
   non_mono_size = 1,
-   subsolver_type::Union{Type{<:KrylovSolver}, Type{QRMumpsSolver}}  = LsmrSolver,
+  subsolver_type::Union{Type{<:KrylovSolver}, Type{QRMumpsSolver}} = LsmrSolver,
 ) where {T, V}
   subsolver_type in R2NLS_allowed_subsolvers ||
     error("subproblem solver must be one of $(R2NLS_allowed_subsolvers)")
@@ -124,7 +164,7 @@ function R2NLSSolver(
   Jx = jac_op_residual!(nlp, x, Jv, Jtv)
   Op = typeof(Jx)
   subsolver =
-    isa(subsolver_type, Type{QRMumpsSolver}) ? subsolver_type() : subsolver_type(nvar, nvar, V) 
+    isa(subsolver_type, Type{QRMumpsSolver}) ? subsolver_type() : subsolver_type(nvar, nvar, V)
   Sub = typeof(subsolver)
 
   s = V(undef, nvar)
@@ -187,7 +227,7 @@ function SolverCore.solve!(
   Fatol::T = zero(T),
   Frtol::T = zero(T),
   η1 = eps(T)^(1 / 4),
-  η2 =T(0.95),
+  η2 = T(0.95),
   θ1 = T(0.5),
   θ2 = T(10),
   γ1 = T(1.5),
@@ -220,7 +260,7 @@ function SolverCore.solve!(
 
   start_time = time()
   set_time!(stats, 0.0)
-  
+
   n = nlp.nls_meta.nvar
   m = nlp.nls_meta.nequ
   x = solver.x .= x
@@ -232,7 +272,7 @@ function SolverCore.solve!(
   scp = solver.scp
   scp_temp = solver.scp_tem
   subtol = solver.subtol
-  
+
   σk = solver.σ
   residual!(nlp, x, r)
   f, ∇f = objgrad!(nlp, x, ∇f, r, recompute = false)
@@ -276,11 +316,17 @@ function SolverCore.solve!(
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
     @info log_header(
-      [:iter, :f, :dual, :σ, :ρ, :dir, :sub_status],
-      [Int, Float64, Float64, Float64, Float64, String, String],
-      hdr_override = Dict(:f => "f(x)", :dual => "‖∇f‖", :dir => "dir", :sub_status => "status"),
+      [:iter, :f, :dual, :σ, :ρ, sub_iter, :dir, :sub_status],
+      [Int, Float64, Float64, Float64, Float64, Int, String, String],
+      hdr_override = Dict(
+        :f => "f(x)",
+        :dual => "‖∇f‖",
+        :sub_iter => "subiter",
+        :dir => "dir",
+        :sub_status => "status",
+      ),
     )
-    @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk, " ", " "])
+    @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk, 0, " ", " "])
   end
 
   set_status!(
@@ -316,7 +362,7 @@ function SolverCore.solve!(
     if cp_calulate
       # Armijo linesearch parameter.
       β = β * θ1
-      ν_k = θ1 / (norm(Jx) + σk)
+      ν_k = T(1)
       scp_temp .= scp
       α = 1.0
       while true
@@ -330,14 +376,15 @@ function SolverCore.solve!(
       end
     else
       ν_k = θ1 / (norm(Jx)^2 + σk)
-    end    
+    end
     scp .= -ν_k * ∇f
 
     # Compute the step s.
-    subsolver_solved, sub_stats, subiter =  subsolve!(solver.subsolver_type, solver, s, zero(T), n,m,subsolver_verbose)
-    
-    if( !subsolver_solved  ) && stats.iter > 0
-        #TODO
+    subsolver_solved, sub_stats, subiter =
+      subsolve!(solver.subsolver_type, solver, s, zero(T), n, m, subsolver_verbose)
+
+    if (!subsolver_solved) && stats.iter > 0
+      #TODO
     end
     if norm(s) > θ2 * norm(scp)
       s .= scp # TODO check if deep copy
@@ -374,7 +421,7 @@ function SolverCore.solve!(
       unbounded = fck < fmin
       norm_∇fk = norm(∇f)
       if ρk >= η2
-        σk = max(σmin,  γ3 * σk)
+        σk = max(σmin, γ3 * σk)
       else # η1 ≤ ρk < η2
         σk = min(σmin, γ1 * σk)
       end
@@ -403,7 +450,16 @@ function SolverCore.solve!(
 
     if verbose > 0 && mod(stats.iter, verbose) == 0
       dir_stat = step_accepted ? "↘" : "↗"
-      @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk, dir_stat, sub_stats.status])
+      @info log_row([
+        stats.iter,
+        stats.objective,
+        norm_∇fk,
+        σk,
+        ρk,
+        subiter,
+        dir_stat,
+        sub_stats.status,
+      ])
     end
 
     if stats.status == :user
