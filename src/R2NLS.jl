@@ -1,5 +1,7 @@
 export R2NLS, R2NLSSolver
 export QRMumpsSolver
+using LinearAlgebra
+using Arpack
 using QRMumps, SparseArrays
 
 abstract type AbstractQRMumpsSolver end
@@ -211,7 +213,7 @@ function SolverCore.solve!(
   r, rt = solver.Fx, solver.rt
   s = solver.s
   scp = solver.scp
-  scp_temp = solver.scp_tem
+  scp_temp = solver.scp_temp
   subtol = solver.subtol
 
   σk = solver.σ
@@ -252,7 +254,7 @@ function SolverCore.solve!(
       [Int, Float64, Float64, Float64, Float64],
       hdr_override = Dict(:f => "f(x)", :dual => "‖∇f‖"),
     )
-    @info log_row([stats.iter, stats.objective, norm_∇fk, μk, σk, ρk])
+    @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk])
   end
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
@@ -316,17 +318,19 @@ function SolverCore.solve!(
         α *= γ3
       end
     else
-      ν_k = θ1 / (norm(Jx)^2 + σk)
+      λmax, found_λ = opnorm(Jx)
+      found_λ || error("operator norm computation failed")
+      ν_k = θ1 / (λmax + σk)
     end
     scp .= -ν_k * ∇f
 
     # Compute the step s.
     subsolver_solved, sub_stats, subiter =
-      subsolve!(solver.subsolver_type, solver, s, zero(T), n, m, subsolver_verbose)
+      subsolve!(solver.subsolver, solver, s, zero(T), n, m,max_time, subsolver_verbose)
 
-    if (!subsolver_solved) && stats.iter > 0
-      #TODO
-    end
+    # if (!subsolver_solved) && stats.iter > 0
+    #   #TODO
+    # end
     if norm(s) > θ2 * norm(scp)
       s .= scp # TODO check if deep copy
     end
@@ -384,7 +388,7 @@ function SolverCore.solve!(
     σk = solver.σ
     subtol = solver.subtol
     norm_∇fk = stats.dual_feas # if the user change it, they just change the stats.norm , they also have to change subtol
-    σk = μk * norm_∇fk
+    # σk = μk * norm_∇fk
 
     optimal = norm_∇fk ≤ ϵ
     small_residual = 2 * √f ≤ ϵF
@@ -431,7 +435,7 @@ end
 
 
 # Dispatch for MinresSolver
-function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m,max_time, subsolver_verbose)
   ∇f_neg = R2NLS.gx
   H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
   σ = R2NLS.σ
@@ -453,7 +457,7 @@ function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, s
 end
 
 # Dispatch for KrylovSolver
-function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, max_time,subsolver_verbose)
   Krylov.solve!(
     subsolver,
     R2NLS.Jx,
@@ -462,7 +466,7 @@ function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, s
     rtol = R2NLS.subtol,
     λ = √(R2NLS.σ) / 2, # or sqrt(σk / 2),  λ ≥ 0 is a regularization parameter.
     itmax = max(2 * (n + m), 50),
-    timemax = max_time - stats.elapsed_time,
+    # timemax = max_time - R2NLSSolver.stats.elapsed_time,
     verbose = subsolver_verbose,
   )
   s .= subsolver.x
@@ -470,7 +474,7 @@ function subsolve!(subsolver::KrylovSolver, R2NLS::R2NLSSolver, s, atol, n, m, s
 end
 
 # Dispatch for QRMumpsSolver
-function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, subsolver_verbose)
+function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, max_time,subsolver_verbose)
   #TODO GPU vs CPU 
   QRMumps.qrm_init()
   # Augmented matrix A_aug is (m+n)×n
@@ -486,4 +490,102 @@ function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, 
   spmat = qrm_spmat_init(A_aug)    # wrap in QRMumps format
   s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
   return true, "QRMumpsSolver", 0 #TODO fix this 
+end
+
+
+
+#################### TODO put this in a separate file
+
+
+# use Arpack to obtain largest eigenvalue in magnitude with a minimum of robustness
+function LinearAlgebra.opnorm(B; kwargs...)
+  m, n = size(B)
+  opnorm_fcn = m == n ? opnorm_eig : opnorm_svd
+  return opnorm_fcn(B; kwargs...)
+end
+
+function opnorm_eig(B; max_attempts::Int = 3)
+  have_eig = false
+  attempt = 0
+  λ = zero(eltype(B))
+  n = size(B, 1)
+  nev = 1
+
+  # If tiny, just do dense
+  if n ≤ 5
+    λs = eigen(Matrix(B)).values
+    return maximum(abs, λs), true
+  end
+
+  ncv = max(20, 2 * nev + 1)
+
+  while !(have_eig || attempt >= max_attempts)
+    attempt += 1
+    try
+      # Estimate largest eigenvalue in absolute value
+      d, nconv, niter, nmult, resid =
+        eigs(B; nev = nev, ncv = ncv, which = :LM, ritzvec = false, check = 1)
+
+      # Check if eigenvalue has converged
+      have_eig = nconv == 1
+      if have_eig
+        λ = abs(d[1])  # Take absolute value of the largest eigenvalue
+        break  # Exit loop if successful
+      else
+        # Increase NCV for the next attempt if convergence wasn't achieved
+        ncv = min(2 * ncv, n)
+      end
+    catch e
+      if occursin("XYAUPD_Exception", string(e)) && ncv < n
+        @warn "Arpack error: $e. Increasing NCV to $ncv and retrying."
+        ncv = min(2 * ncv, n)  # Increase NCV but don't exceed matrix size
+      else
+        rethrow(e)  # Re-raise if it's a different error
+      end
+    end
+  end
+
+  return λ, have_eig
+end
+
+function opnorm_svd(J; max_attempts::Int = 3)
+  have_svd = false
+  attempt = 0
+  σ = zero(eltype(J))
+  n = min(size(J)...)  # Minimum dimension of the matrix
+  nsv = 1
+  ncv = 10
+
+  # If tiny, do dense SVD
+  if k ≤ 5
+    σs = svd(Matrix(J)).S
+    return maximum(σs), true
+  end
+
+  while !(have_svd || attempt >= max_attempts)
+    attempt += 1
+    try
+      # Estimate largest singular value
+      s, nconv, niter, nmult, resid = svds(J; nsv = nsv, ncv = ncv, ritzvec = false, check = 1)
+
+      # Check if singular value has converged
+      have_svd = nconv >= 1
+      if have_svd
+        σ = maximum(s.S)  # Take the largest singular value
+        break  # Exit loop if successful
+      else
+        # Increase NCV for the next attempt if convergence wasn't achieved
+        ncv = min(2 * ncv, n)
+      end
+    catch e
+      if occursin("XYAUPD_Exception", string(e)) && ncv < n
+        @warn "Arpack error: $e. Increasing NCV to $ncv and retrying."
+        ncv = min(2 * ncv, n)  # Increase NCV but don't exceed matrix size
+      else
+        rethrow(e)  # Re-raise if it's a different error
+      end
+    end
+  end
+
+  return σ, have_svd
 end
