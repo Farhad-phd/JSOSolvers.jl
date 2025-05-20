@@ -190,7 +190,6 @@ function SolverCore.solve!(
   end
 
   reset!(stats)
-  @assert(λ > 1)
   @assert(η1 > 0 && η1 < 1)
   @assert(θ1 > 0 && θ1 < 1)
   @assert(θ2 > 1)
