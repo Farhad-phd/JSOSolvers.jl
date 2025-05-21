@@ -302,20 +302,8 @@ function SolverCore.solve!(
 
     # Compute the Cauchy step.
     if cp_calulate
-      # Armijo linesearch parameter.
-      β = β * θ1
-      ν_k = T(1)
-      scp_temp .= scp
-      α = 1.0
-      while true
-        xt .= x .+ α * scp_temp
-        residual!(nlp, xt, rt)
-        fck = obj(nlp, xt, rt, recompute = false)
-        if fck ≤ f + β * α * dot(temp, scp_temp)
-          break
-        end
-        α *= γ3
-      end
+      λ1 = dot(∇f, (Jx'*Jx + σ * I(n))*∇f)/ norm_∇fk^2
+      v_k = 2*(1-δ1)/ (γ1)  
     else
       λmax, found_λ = opnorm(Jx)
       found_λ || error("operator norm computation failed")
