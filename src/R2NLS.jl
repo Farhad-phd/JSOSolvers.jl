@@ -1,8 +1,6 @@
 export R2NLS, R2NLSSolver
 export QRMumpsSolver
-using LinearAlgebra
-using Arpack
-using QRMumps, SparseArrays
+using QRMumps
 
 abstract type AbstractQRMumpsSolver end
 
@@ -108,7 +106,7 @@ function R2NLSSolver(
   Jx = jac_op_residual!(nlp, x, Jv, Jtv)
   Op = typeof(Jx)
   subsolver =
-    isa(subsolver_type, Type{QRMumpsSolver}) ? subsolver_type() : subsolver_type(nvar, nvar, V)
+    isa(subsolver_type, Type{QRMumpsSolver}) ? subsolver_type() : subsolver_type(nequ, nvar, V)
   Sub = typeof(subsolver)
 
   s = V(undef, nvar)
@@ -173,7 +171,7 @@ function SolverCore.solve!(
   η1 = eps(T)^(1 / 4),
   η2 = T(0.95),
   θ1 = T(0.5),
-  θ2 = T(1000),
+  θ2 = eps(T)^(-1),
   γ1 = T(1.5),
   γ2 = T(2.5),
   γ3 = T(0.5),
@@ -327,7 +325,7 @@ function SolverCore.solve!(
 
     # Compute the step s.
     subsolver_solved, sub_stats, subiter =
-      subsolve!(solver.subsolver, solver, s, zero(T), n, m,max_time, subsolver_verbose)
+      subsolve!(solver.subsolver, solver, s, zero(T), n, m, max_time, subsolver_verbose)
 
     # if (!subsolver_solved) && stats.iter > 0
     #   #TODO
@@ -436,7 +434,7 @@ end
 
 
 # Dispatch for MinresSolver
-function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m,max_time, subsolver_verbose)
+function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, max_time, subsolver_verbose)
   ∇f_neg = -R2NLS.gx
   H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
   σ = R2NLS.σ
@@ -447,7 +445,7 @@ function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m,ma
     H,
     ∇f_neg, # b
     λ = σ,
-    itmax = max(2 * n, 50),
+    itmax = max(2 * (n + m), 50),
     atol = atol,
     rtol = subtol,
     verbose = subsolver_verbose,
@@ -491,102 +489,4 @@ function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, 
   spmat = qrm_spmat_init(Matrix(A_aug))    # wrap in QRMumps format
   s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
   return true, "QRMumpsSolver", 0 #TODO fix this 
-end
-
-
-
-#################### TODO put this in a separate file
-
-
-# use Arpack to obtain largest eigenvalue in magnitude with a minimum of robustness
-function LinearAlgebra.opnorm(B; kwargs...)
-  m, n = size(B)
-  opnorm_fcn = m == n ? opnorm_eig : opnorm_svd
-  return opnorm_fcn(B; kwargs...)
-end
-
-function opnorm_eig(B; max_attempts::Int = 3)
-  have_eig = false
-  attempt = 0
-  λ = zero(eltype(B))
-  n = size(B, 1)
-  nev = 1
-
-  # If tiny, just do dense
-  if n ≤ 5
-    λs = eigen(Matrix(B)).values
-    return maximum(abs, λs), true
-  end
-
-  ncv = max(20, 2 * nev + 1)
-
-  while !(have_eig || attempt >= max_attempts)
-    attempt += 1
-    try
-      # Estimate largest eigenvalue in absolute value
-      d, nconv, niter, nmult, resid =
-        eigs(B; nev = nev, ncv = ncv, which = :LM, ritzvec = false, check = 1)
-
-      # Check if eigenvalue has converged
-      have_eig = nconv == 1
-      if have_eig
-        λ = abs(d[1])  # Take absolute value of the largest eigenvalue
-        break  # Exit loop if successful
-      else
-        # Increase NCV for the next attempt if convergence wasn't achieved
-        ncv = min(2 * ncv, n)
-      end
-    catch e
-      if occursin("XYAUPD_Exception", string(e)) && ncv < n
-        @warn "Arpack error: $e. Increasing NCV to $ncv and retrying."
-        ncv = min(2 * ncv, n)  # Increase NCV but don't exceed matrix size
-      else
-        rethrow(e)  # Re-raise if it's a different error
-      end
-    end
-  end
-
-  return λ, have_eig
-end
-
-function opnorm_svd(J; max_attempts::Int = 3)
-  have_svd = false
-  attempt = 0
-  σ = zero(eltype(J))
-  n = min(size(J)...)  # Minimum dimension of the matrix
-  nsv = 1
-  ncv = 10
-
-  # If tiny, do dense SVD
-  if n ≤ 5
-    σs = svd(Matrix(J)).S
-    return maximum(σs), true
-  end
-
-  while !(have_svd || attempt >= max_attempts)
-    attempt += 1
-    try
-      # Estimate largest singular value
-      s, nconv, niter, nmult, resid = svds(J; nsv = nsv, ncv = ncv, ritzvec = false, check = 1)
-
-      # Check if singular value has converged
-      have_svd = nconv >= 1
-      if have_svd
-        σ = maximum(s.S)  # Take the largest singular value
-        break  # Exit loop if successful
-      else
-        # Increase NCV for the next attempt if convergence wasn't achieved
-        ncv = min(2 * ncv, n)
-      end
-    catch e
-      if occursin("XYAUPD_Exception", string(e)) && ncv < n
-        @warn "Arpack error: $e. Increasing NCV to $ncv and retrying."
-        ncv = min(2 * ncv, n)  # Increase NCV but don't exceed matrix size
-      else
-        rethrow(e)  # Re-raise if it's a different error
-      end
-    end
-  end
-
-  return σ, have_svd
 end

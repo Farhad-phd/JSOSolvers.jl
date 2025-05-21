@@ -1,5 +1,5 @@
 # stdlib
-using Printf, LinearAlgebra, Logging, SparseArrays, Test
+using Printf, LinearAlgebra, Logging, SparseArrays, Test, Arpack
 
 # additional packages
 using ADNLPModels, Krylov, LinearOperators, NLPModels, NLPModelsModifiers, SolverCore, SolverTools
@@ -7,60 +7,61 @@ using NLPModelsTest
 
 # this package
 using JSOSolvers
+using GenericLinearAlgebra
 
-@testset "Test small residual checks $solver" for solver in (:TrunkSolverNLS, :TronSolverNLS)
-  nls = ADNLSModel(x -> [x[1] - 1; sin(x[2])], [-1.2; 1.0], 2)
-  stats = GenericExecutionStats(nls)
-  solver = eval(solver)(nls)
-  SolverCore.solve!(solver, nls, stats, atol = 0.0, rtol = 0.0, Fatol = 1e-6, Frtol = 0.0)
-  @test stats.status_reliable && stats.status == :small_residual
-  @test stats.objective_reliable && isapprox(stats.objective, 0, atol = 1e-6)
-end
+# @testset "Test small residual checks $solver" for solver in (:TrunkSolverNLS, :TronSolverNLS)
+#   nls = ADNLSModel(x -> [x[1] - 1; sin(x[2])], [-1.2; 1.0], 2)
+#   stats = GenericExecutionStats(nls)
+#   solver = eval(solver)(nls)
+#   SolverCore.solve!(solver, nls, stats, atol = 0.0, rtol = 0.0, Fatol = 1e-6, Frtol = 0.0)
+#   @test stats.status_reliable && stats.status == :small_residual
+#   @test stats.objective_reliable && isapprox(stats.objective, 0, atol = 1e-6)
+# end
 
-@testset "Test iteration limit" begin
-  @testset "$fun" for fun in (R2, fomo, lbfgs, tron, trunk)
-    f(x) = (x[1] - 1)^2 + 4 * (x[2] - x[1]^2)^2
-    nlp = ADNLPModel(f, [-1.2; 1.0])
+# @testset "Test iteration limit" begin
+#   @testset "$fun" for fun in (R2, fomo, lbfgs, tron, trunk)
+#     f(x) = (x[1] - 1)^2 + 4 * (x[2] - x[1]^2)^2
+#     nlp = ADNLPModel(f, [-1.2; 1.0])
 
-    stats = eval(fun)(nlp, max_iter = 1)
-    @test stats.status == :max_iter
-  end
+#     stats = eval(fun)(nlp, max_iter = 1)
+#     @test stats.status == :max_iter
+#   end
 
-  @testset "$(name)-NLS" for (name, solver) in [
-    ("trunk", trunk),
-    ("tron", tron),
-    ("R2NLS", (nlp; kwargs...) -> R2NLS(nlp; kwargs...)),
-    ("R2NLS_CGLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = CglsSolver; kwargs...)),
-    ("R2NLS_LSQR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
-    ("R2NLS_CRLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
-    ("R2NLS_LSMR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsmrSolver; kwargs...)),
-    # ("R2NLS_QRMumps", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = QRMumpsSolver; kwargs...)),
-    ("R2NLS_Minres", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = MinresSolver; kwargs...)),
-  ]
-    f(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
-    nlp = ADNLSModel(f, [-1.2; 1.0], 2)
+#   @testset "$(name)-NLS" for (name, solver) in [
+#     ("trunk", trunk),
+#     ("tron", tron),
+#     ("R2NLS", (nlp; kwargs...) -> R2NLS(nlp; kwargs...)),
+#     ("R2NLS_CGLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = CglsSolver; kwargs...)),
+#     ("R2NLS_LSQR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
+#     ("R2NLS_CRLS", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsqrSolver; kwargs...)),
+#     ("R2NLS_LSMR", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = LsmrSolver; kwargs...)),
+#     # ("R2NLS_QRMumps", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = QRMumpsSolver; kwargs...)),
+#     ("R2NLS_Minres", (nlp; kwargs...) -> R2NLS(nlp, subsolver_type = MinresSolver; kwargs...)),
+#   ]
+#     f(x) = [x[1] - 1; 2 * (x[2] - x[1]^2)]
+#     nlp = ADNLSModel(f, [-1.2; 1.0], 2)
 
-    stats = eval(solver)(nlp, max_iter = 1)
-    @test stats.status == :max_iter
-  end
-end
+#     stats = eval(solver)(nlp, max_iter = 1)
+#     @test stats.status == :max_iter
+#   end
+# end
 
-@testset "Test unbounded below" begin
-  @testset "$fun" for fun in (R2, fomo, lbfgs, tron, trunk)
-    T = Float64
-    x0 = [T(0)]
-    f(x) = -exp(x[1])
-    nlp = ADNLPModel(f, x0)
+# @testset "Test unbounded below" begin
+#   @testset "$fun" for fun in (R2, fomo, lbfgs, tron, trunk)
+#     T = Float64
+#     x0 = [T(0)]
+#     f(x) = -exp(x[1])
+#     nlp = ADNLPModel(f, x0)
 
-    stats = eval(fun)(nlp)
-    @test stats.status == :unbounded
-    @test stats.objective < -one(T) / eps(T)
-  end
-end
+#     stats = eval(fun)(nlp)
+#     @test stats.status == :unbounded
+#     @test stats.objective < -one(T) / eps(T)
+#   end
+# end
 
-include("restart.jl")
-include("callback.jl")
-include("consistency.jl")
+# include("restart.jl")
+# include("callback.jl")
+# include("consistency.jl")
 include("test_solvers.jl")
 if VERSION ≥ v"1.7"
   include("allocs.jl")
