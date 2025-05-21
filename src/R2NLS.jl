@@ -114,7 +114,7 @@ function R2NLSSolver(
   s = V(undef, nvar)
   scp = V(undef, nvar)
   scp_temp = V(undef, nvar)
-  σ = zero(T)
+  σ = one(T)
 
   subtol = one(T) # must be ≤ 1.0
   obj_vec = fill(typemin(T), non_mono_size)
@@ -146,7 +146,7 @@ end
 function SolverCore.reset!(solver::R2NLSSolver{T}, nlp::AbstractNLSModel) where {T}
   fill!(solver.obj_vec, typemin(T))
   solver.Jx = jac_op_residual!(nlp, solver.x, solver.Jv, solver.Jtv)
-  solver.subtol = one(T)
+  # solver.subtol = one(T)
   solver
 end
 
@@ -177,7 +177,7 @@ function SolverCore.solve!(
   γ1 = T(1.5),
   γ2 = T(2.5),
   γ3 = T(0.5),
-  σmin = zero(T),
+  σmin = eps(T),
   max_time::Float64 = 30.0,
   max_eval::Int = -1,
   max_iter::Int = typemax(Int),
@@ -232,6 +232,7 @@ function SolverCore.solve!(
   fmin = min(-one(T), f0) / eps(T)
   unbounded = f < fmin
 
+  σk = 2^round(log2(norm_∇fk + 1)) / norm_∇fk
   ϵ = atol + rtol * norm_∇fk
   ϵF = Fatol + Frtol * 2 * √f
   ν_k = T(0)
@@ -259,7 +260,7 @@ function SolverCore.solve!(
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
     @info log_header(
-      [:iter, :f, :dual, :σ, :ρ, sub_iter, :dir, :sub_status],
+      [:iter, :f, :dual, :σ, :ρ, :sub_iter, :dir, :sub_status],
       [Int, Float64, Float64, Float64, Float64, Int, String, String],
       hdr_override = Dict(
         :f => "f(x)",
@@ -331,9 +332,9 @@ function SolverCore.solve!(
     # if (!subsolver_solved) && stats.iter > 0
     #   #TODO
     # end
-    if norm(s) > θ2 * norm(scp)
-      s .= scp # TODO check if deep copy
-    end
+    # if norm(s) > θ2 * norm(scp)
+    #   s .= scp # TODO check if deep copy
+    # end
 
     # Compute actual vs. predicted reduction.
     xt .= x .+ s
@@ -403,7 +404,7 @@ function SolverCore.solve!(
         ρk,
         subiter,
         dir_stat,
-        sub_stats.status,
+        sub_stats,
       ])
     end
 
@@ -436,7 +437,7 @@ end
 
 # Dispatch for MinresSolver
 function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m,max_time, subsolver_verbose)
-  ∇f_neg = R2NLS.gx
+  ∇f_neg = -R2NLS.gx
   H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
   σ = R2NLS.σ
   subtol = R2NLS.subtol
