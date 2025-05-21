@@ -65,6 +65,7 @@ if Sys.isunix()
       (:R2NLSSolver_CR, :R2NLSSolver),
       (:R2NLSSolver_LSMR, :R2NLSSolver),
       # (:R2NLSSolver_QRMumps, :R2NLSSolver),
+      (:R2NLSSolver_Minres, :R2NLSSolver),
       (:TronSolverNLS, :TronSolverNLS),
     )
       for model in NLPModelsTest.nls_problems
@@ -78,8 +79,10 @@ if Sys.isunix()
             solver = eval(symsolver)(nlp, subsolver_type = CrlsSolver)
           elseif name == :R2NLSSolver_LSMR
             solver = eval(symsolver)(nlp, subsolver_type = LsmrSolver)
-            # elseif name == :R2NLSSolver_QRMumps
-            #   solver = eval(symsolver)(nlp, subsolver_type = QRMumpsSolver)
+          elseif name == :R2NLSSolver_QRMumps
+            solver = eval(symsolver)(nlp, subsolver_type = QRMumpsSolver)
+          elseif name == :R2NLSSolver_Minres
+            solver = eval(symsolver)(nlp, subsolver_type = MinresSolver)
           else
             solver = eval(symsolver)(nlp)
           end

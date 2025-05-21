@@ -46,10 +46,8 @@ function tests()
         ("R2NLS_LSQR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
         ("R2NLS_CRLS", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsqrSolver; kwargs...)),
         ("R2NLS_LSMR", (unls; kwargs...) -> R2NLS(unls, subsolver_type = LsmrSolver; kwargs...)),
-        # ( #TODO 
-        #   "R2NLS_QRMumps",
-        #   (unls; kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...),
-        # ),
+        # ("R2NLS_QRMumps", (unls; kwargs...) -> R2NLS(unls, subsolver_type = QRMumpsSolver; kwargs...)),
+        ("R2NLS_Minres", (unls; kwargs...) -> R2NLS(unls, subsolver_type = MinresSolver; kwargs...)),
       ]
         unconstrained_nls(solver)
         multiprecision_nls(solver, :unc)

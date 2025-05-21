@@ -173,7 +173,7 @@ function SolverCore.solve!(
   η1 = eps(T)^(1 / 4),
   η2 = T(0.95),
   θ1 = T(0.5),
-  θ2 = T(10),
+  θ2 = T(1000),
   γ1 = T(1.5),
   γ2 = T(2.5),
   γ3 = T(0.5),
@@ -332,9 +332,9 @@ function SolverCore.solve!(
     # if (!subsolver_solved) && stats.iter > 0
     #   #TODO
     # end
-    # if norm(s) > θ2 * norm(scp)
-    #   s .= scp # TODO check if deep copy
-    # end
+    if norm(s) > θ2 * norm(scp)
+      s .= scp # TODO check if deep copy
+    end
 
     # Compute actual vs. predicted reduction.
     xt .= x .+ s
@@ -488,7 +488,7 @@ function subsolve!(subsolver::QRMumpsSolver, R2NLS::R2NLSSolver, s, atol, n, m, 
     -R2NLS.Fx
     zeros(n)
   ]
-  spmat = qrm_spmat_init(A_aug)    # wrap in QRMumps format
+  spmat = qrm_spmat_init(Matrix(A_aug))    # wrap in QRMumps format
   s = qrm_min_norm(spmat, b_aug)   # min-norm solution of A_aug * s = b_aug
   return true, "QRMumpsSolver", 0 #TODO fix this 
 end
