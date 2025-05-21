@@ -558,7 +558,7 @@ function opnorm_svd(J; max_attempts::Int = 3)
   ncv = 10
 
   # If tiny, do dense SVD
-  if k ≤ 5
+  if n ≤ 5
     σs = svd(Matrix(J)).S
     return maximum(σs), true
   end
