@@ -1,7 +1,7 @@
 module JSOSolvers
 
 # stdlib
-using LinearAlgebra, Logging, Printf
+using LinearAlgebra, Logging, Printf, Arpack, SparseArrays
 
 # JSO packages
 using Krylov,
