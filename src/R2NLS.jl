@@ -434,16 +434,16 @@ end
 
 # Dispatch for MinresSolver
 function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, max_time, subsolver_verbose)
-  ∇f_neg = -R2NLS.gx
+  ∇f_neg = R2NLS.Jx' * R2NLS.temp
   H = R2NLS.Jx' * R2NLS.Jx #TODO allocate 
-  σ = R2NLS.σ
+  σ = √R2NLS.σ
   subtol = R2NLS.subtol
 
   minres!(
     subsolver,
     H,
     ∇f_neg, # b
-    λ = σ,
+    λ = σ/2,
     itmax = max(2 * (n + m), 50),
     atol = atol,
     rtol = subtol,
