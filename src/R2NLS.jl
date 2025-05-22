@@ -310,7 +310,8 @@ function SolverCore.solve!(
     slope = σk * norm_∇fk^2 # slope= σ * ||∇f||^2    
     γ_k = (curv + slope)/ norm_∇fk^2
 
-    if γ_k < 0
+    #TODO 
+    if γ_k > 0
       v_k = 2*(1-δ1)/ (γ_k) 
       if verbose > 0
          cp_step_log = "α_k"
