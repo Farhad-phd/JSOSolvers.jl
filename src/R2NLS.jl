@@ -29,7 +29,7 @@ For advanced usage, first create a `R2NLSSolver` to preallocate the necessary me
 - `η1 =T(0.0001) eps(T)^(1/4)`, `η2 =T(0.001) T(0.95)`: step acceptance parameters.
 - `θ1 = T(0.5)`, `θ2 = T(10)`: Cauchy step parameters.
 - `γ1 = T(1.5)`, `γ2 = T(2.5)`, `γ3 = T(0.5)`: regularization update parameters.
-- `δ1 = T(0.7)`: used for Cauchy point calculate.
+- `δ1 = T(0.5)`: used for Cauchy point calculate.
 - `σmin = eps(T)`: minimum step parameter for the R2NLS algorithm.
 - `max_eval::Int = -1`: maximum number of objective function evaluations.
 - `max_time::Float64 = 30.0`: maximum allowed time in seconds.
@@ -172,7 +172,7 @@ function SolverCore.solve!(
   γ1 = T(1.5),
   γ2 = T(2.5),
   γ3 = T(0.5),
-  δ1 = T(0.7),
+  δ1 = T(0.5),
   σmin = eps(T),
   max_time::Float64 = 30.0,
   max_eval::Int = -1,
@@ -296,12 +296,11 @@ function SolverCore.solve!(
   
 
   while !done
-    temp .= .-r
 
     # Compute the Cauchy step.
     mul!(temp, Jx, ∇f) # temp <- Jx'*∇f
     curv = dot(temp, temp) # curv = ∇f' Jx'Jx *∇f
-    slope = σ_k * norm_∇fk^2 # slope= σ * ||∇f||^2    
+    slope = σk * norm_∇fk^2 # slope= σ * ||∇f||^2    
     γ_k = (curv + slope)/ norm_∇fk^2
 
     if γ_k < 0
@@ -320,9 +319,10 @@ function SolverCore.solve!(
     
     scp .= -ν_k * ∇f
 
+    temp .= .-r
     # Compute the step s.
     subsolver_solved, sub_stats, subiter =
-      subsolve!(solver.subsolver, solver, s, zero(T), n, m, max_time, subsolver_verbose)
+      subsolve!(subsolver, solver, s, zero(T), n, m, max_time, subsolver_verbose)
 
     # if (!subsolver_solved) && stats.iter > 0
     #   #TODO
