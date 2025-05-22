@@ -251,6 +251,7 @@ function SolverCore.solve!(
   end
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
+    cp_step_log = " "
     @info log_header(
       [:iter, :f, :dual, :σ, :ρ, :sub_iter, :dir, :cp_step_log, :sub_status],
       [Int, Float64, Float64, Float64, Float64, Int, String, String, String],
@@ -292,6 +293,7 @@ function SolverCore.solve!(
 
   done = stats.status != :unknown
   v_k = one(T)
+  
 
   while !done
     temp .= .-r
@@ -304,11 +306,15 @@ function SolverCore.solve!(
 
     if γ_k < 0
       v_k = 2*(1-δ1)/ (γ_k) 
-      verbose > 0 && cp_step_log = "α_k"
+      if verbose > 0
+         cp_step_log = "α_k"
+      end
     else
       λmax, found_λ = opnorm(Jx)
       found_λ || error("operator norm computation failed")
-      verbose > 0 && cp_step_log = "ν_k"
+      if verbose > 0
+         cp_step_log = "ν_k"
+      end
       ν_k = θ1 / (λmax + σk)
     end
     
