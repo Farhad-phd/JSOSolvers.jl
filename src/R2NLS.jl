@@ -29,7 +29,7 @@ For advanced usage, first create a `R2NLSSolver` to preallocate the necessary me
 - `η1 =T(0.0001) eps(T)^(1/4)`, `η2 =T(0.001) T(0.95)`: step acceptance parameters.
 - `θ1 = T(0.5)`, `θ2 = T(10)`: Cauchy step parameters.
 - `γ1 = T(1.5)`, `γ2 = T(2.5)`, `γ3 = T(0.5)`: regularization update parameters.
-- `δ1 = T(0.7)`: used for Cauchy point calculate if cp_calulate is true.
+- `δ1 = T(0.7)`: used for Cauchy point calculate.
 - `σmin = eps(T)`: minimum step parameter for the R2NLS algorithm.
 - `max_eval::Int = -1`: maximum number of objective function evaluations.
 - `max_time::Float64 = 30.0`: maximum allowed time in seconds.
@@ -38,7 +38,6 @@ For advanced usage, first create a `R2NLSSolver` to preallocate the necessary me
 - `subsolver_type::Union{Type{<:KrylovSolver},Type{QRMumpsSolver}} = LsmrSolver`: the subsolver used to solve the shifted linear system. 
 - `subsolver_verbose::Int = 0`: if > 0, displays subsolver iteration details every `subsolver_verbose` iterations when a KrylovSolver type is selected.
 - `non_mono_size = 1`: the size of the non-monotone behaviour. If > 1, the algorithm will use a non-monotone strategy to accept steps.
-- `cp_calulate = false`: if true, the algorithm uses Armijo backtracking line search along −J_k^T F(xk) for cuachy step, otherwise it calculate the Cauchy step scp=  −ν_k J_k^T F(xk)  where ν_k =  θ1/(‖J_k^T J_k‖²+σ_k).
 See `JSOSolvers.R2N_allowed_subsolvers` for a list of available subsolvers.
 # Output
 Returns a `GenericExecutionStats` object containing statistics and information about the optimization process (see `SolverCore.jl`).
@@ -81,7 +80,6 @@ mutable struct R2NLSSolver{
   subtol::T
   s::V
   scp::V
-  scp_temp::V  # used for line search 
   σ::T
 end
 
@@ -112,7 +110,6 @@ function R2NLSSolver(
 
   s = V(undef, nvar)
   scp = V(undef, nvar)
-  scp_temp = V(undef, nvar)
   σ = one(T)
 
   subtol = one(T) # must be ≤ 1.0
@@ -133,7 +130,6 @@ function R2NLSSolver(
     subtol,
     s,
     scp,
-    scp_temp,
     σ,
   )
 end
@@ -184,7 +180,6 @@ function SolverCore.solve!(
   verbose::Int = 0,
   subsolver_verbose::Int = 0,
   non_mono_size = 1,
-  cp_calulate = false,
 ) where {T, V}
   unconstrained(nlp) || error("R2NLS should only be called on unconstrained problems.")
   if !(nlp.meta.minimize)
@@ -198,9 +193,6 @@ function SolverCore.solve!(
   @assert(γ1 >= 1 && γ1 <= γ2 && γ3 <= 1)
   @assert(δ1>0 && δ1<1)
 
-  # # Armijo linesearch parameter.
-  # β = eps(T)^T(1 / 4)
-  # α = 1.0
 
   start_time = time()
   set_time!(stats, 0.0)
@@ -214,7 +206,6 @@ function SolverCore.solve!(
   r, rt = solver.Fx, solver.rt
   s = solver.s
   scp = solver.scp
-  scp_temp = solver.scp_temp
   subtol = solver.subtol
 
   σk = solver.σ
@@ -261,17 +252,18 @@ function SolverCore.solve!(
 
   if verbose > 0 && mod(stats.iter, verbose) == 0
     @info log_header(
-      [:iter, :f, :dual, :σ, :ρ, :sub_iter, :dir, :sub_status],
-      [Int, Float64, Float64, Float64, Float64, Int, String, String],
+      [:iter, :f, :dual, :σ, :ρ, :sub_iter, :dir, :cp_step_log, :sub_status],
+      [Int, Float64, Float64, Float64, Float64, Int, String, String, String],
       hdr_override = Dict(
         :f => "f(x)",
         :dual => "‖∇f‖",
         :sub_iter => "subiter",
         :dir => "dir",
+        :cp_step_log => "cp step",
         :sub_status => "status",
       ),
     )
-    @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk, 0, " ", " "])
+    @info log_row([stats.iter, stats.objective, norm_∇fk, σk, ρk, 0, " "," ", " "])
   end
 
   set_status!(
@@ -305,15 +297,18 @@ function SolverCore.solve!(
     temp .= .-r
 
     # Compute the Cauchy step.
-    if cp_calulate
-      mul!(temp, Jx, ∇f) # temp <- Jx'*∇f
-      curv = dot(temp, temp) # curv = ∇f' Jx'Jx *∇f
-      slope = σ_k * norm_∇fk^2 # slope= σ * ||∇f||^2    
-      γ_k = (curv + slope)/ norm_∇fk^2
-      v_k = 2*(1-δ1)/ (γ_k)  
+    mul!(temp, Jx, ∇f) # temp <- Jx'*∇f
+    curv = dot(temp, temp) # curv = ∇f' Jx'Jx *∇f
+    slope = σ_k * norm_∇fk^2 # slope= σ * ||∇f||^2    
+    γ_k = (curv + slope)/ norm_∇fk^2
+
+    if γ_k < 0
+      v_k = 2*(1-δ1)/ (γ_k) 
+      verbose > 0 && cp_step_log = "α_k"
     else
       λmax, found_λ = opnorm(Jx)
       found_λ || error("operator norm computation failed")
+      verbose > 0 && cp_step_log = "ν_k"
       ν_k = θ1 / (λmax + σk)
     end
     
@@ -398,6 +393,7 @@ function SolverCore.solve!(
         σk,
         ρk,
         subiter,
+        cp_step_log,
         dir_stat,
         sub_stats,
       ])
@@ -446,7 +442,7 @@ function subsolve!(subsolver::MinresSolver, R2NLS::R2NLSSolver, s, atol, n, m, m
     atol = atol,
     rtol = subtol,
     verbose = subsolver_verbose,
-    linesearch = true,
+    # linesearch = true, #TODO update JSOSolvers to use Krylov new workspace
   )
   s .= subsolver.x
   return issolved(subsolver), subsolver.stats.status, subsolver.stats.niter
