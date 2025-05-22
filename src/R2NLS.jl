@@ -104,8 +104,13 @@ function R2NLSSolver(
   Jtv = V(undef, nvar)
   Jx = jac_op_residual!(nlp, x, Jv, Jtv)
   Op = typeof(Jx)
-  subsolver =
-    isa(subsolver_type, Type{QRMumpsSolver}) ? subsolver_type() : subsolver_type(nequ, nvar, V)
+  if subsolver_type == QRMumpsSolver
+    subsolver =  subsolver_type()
+  elseif subsolver_type == MinresSolver
+    subsolver = subsolver_type(nvar, nvar) # MinresSolver expect squares
+  else 
+    subsolver = subsolver_type(nvar, nequ)
+  end
   Sub = typeof(subsolver)
 
   s = V(undef, nvar)
