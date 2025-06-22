@@ -1,7 +1,7 @@
 module JSOSolvers
 
 # stdlib
-using LinearAlgebra, Logging, Printf
+using LinearAlgebra, Logging, Printf, Arpack, SparseArrays
 
 # JSO packages
 using Krylov,
@@ -41,10 +41,14 @@ function normM!(n, x, M, z)
   end
 end
 
+# Utility functions #TODO remove this file since we will push it from R2NLS PR 
+include("utils.jl")
+
 # Unconstrained solvers
 include("lbfgs.jl")
 include("trunk.jl")
 include("fomo.jl")
+include("R2N.jl")
 
 # Unconstrained solvers for NLS
 include("trunkls.jl")
