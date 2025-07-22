@@ -217,7 +217,7 @@ function SolverCore.solve!(
 
   σk = solver.σ
   residual!(nlp, x, r)
-  f, ∇f = objgrad!(nlp, x, ∇f, r, recompute = false)
+  f, ∇f = objgrad!(nlp, x, ∇f, r, recompute = false)  # TODO why grad here?
   f0 = f
 
   # preallocate storage for products with Jx and Jx'
@@ -366,7 +366,7 @@ function SolverCore.solve!(
       x .= xt
       r .= rt
       f = fck
-      grad!(nlp, x, ∇f)
+      grad!(nlp, x, ∇f) # recompute false
       set_objective!(stats, fck)
       unbounded = fck < fmin
       norm_∇fk = norm(∇f)
