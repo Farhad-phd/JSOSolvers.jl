@@ -1,14 +1,12 @@
 # stdlib
 using Printf, LinearAlgebra, Logging, SparseArrays, Test
-using CUDA
+
 # additional packages
 using ADNLPModels, Krylov, LinearOperators, NLPModels, NLPModelsModifiers, SolverCore, SolverTools
 using NLPModelsTest, SolverParameters
 
 # this package
 using JSOSolvers
-
-include("test-gpu.jl")
 
 @testset "Test parameterset" begin
   @testset "Test unconstrained parameters $paramset" for (paramset, fun) in (
@@ -97,8 +95,6 @@ include("test_hsl_subsolver.jl")
 include("callback.jl")
 include("consistency.jl")
 include("test_solvers.jl")
-include("incompatible.jl")
-
 if VERSION ≥ v"1.7"
   include("allocs.jl")
 
