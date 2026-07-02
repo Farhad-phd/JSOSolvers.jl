@@ -351,10 +351,10 @@ function SolverCore.solve!(
       ),
     )
 
-    callback(nlp, solver, stats)
-
     step_underflow && set_status!(stats, :small_step)
     solver.Δ == zero(T) && set_status!(stats, :exception)
+    
+    callback(nlp, solver, stats)
     done = stats.status != :unknown
   end
 
