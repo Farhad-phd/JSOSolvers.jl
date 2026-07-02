@@ -297,7 +297,7 @@ function SolverCore.solve!(
       set_status!(stats, :unbounded)
       break
     end
-
+    @info "stats.objective: $(stats.objective), ft: $ft, ΔTk: $ΔTk"
     ρk = (stats.objective - ft) / ΔTk
 
     if ρk >= η2
