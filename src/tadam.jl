@@ -317,7 +317,7 @@ function SolverCore.solve!(
       @. momentum = gx * (oneT - β1) + momentum * β1
       @. v = (gx^2 * (oneT - β2) + v * β2 * (oneT - β2^(siter - 1))) / (oneT - β2^siter)
       
-      grad!(nlp, x, gx) #TODO before or after updating momentum and v?
+      grad!(nlp, x, gx)
       
       norm_gx = norm(gx)
       mdotgx = dot(momentum, gx)
