@@ -288,10 +288,19 @@ function SolverCore.solve!(
   while !done
     
     # Always fresh: gradient on current minibatch (B_{k+1} after callback advanced it)
-    grad!(nlp, x, gx)
-    norm_gx = norm(gx)
-    set_dual_residual!(stats, norm_gx)
-    @. d = -(gx * (oneT - β1max) + momentum * β1max) / (oneT - β1^max(1, siter))
+    if step_accepted
+      grad!(nlp, x, gx)
+      norm_gx = norm(gx)
+      set_dual_residual!(stats, norm_gx)
+      
+      @. momentum = gx * (oneT - β1) + momentum * β1
+      @. v = (gx^2 * (oneT - β2) + v * β2 * (oneT - β2^(siter - 1))) / (oneT - β2^siter)
+      mdotgx = dot(momentum, gx)
+      @. p = momentum - gx
+      β1max = find_beta(p, mdotgx, norm_gx, β1, θ1, θ2, siter)
+      avgβ1max += β1max
+      @. d = -(gx * (oneT - β1max) + momentum * β1max) / (oneT - β1^max(1, siter))
+    end
 
     solve_tadam_subproblem!(s, d, v, solver.Δ, ϵ_v)
     @. xt = x + s
