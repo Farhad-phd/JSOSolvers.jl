@@ -114,6 +114,7 @@ mutable struct TADAMSolver{T, V, M <: AbstractNLPModel{T, V}} <: AbstractOptimiz
   s::V
   p::V
   Δ::T
+  step_accepted::Bool
   params::TADAMParameterSet{T}
 end
 
@@ -147,12 +148,13 @@ function TADAMSolver(
   s = similar(nlp.meta.x0)
   p = similar(nlp.meta.x0)
 
-  return TADAMSolver{T, V, typeof(nlp)}(x, xt, gx, m, d, v, s, p, zero(T), params)
+  return TADAMSolver{T, V, typeof(nlp)}(x, xt, gx, m, d, v, s, p, zero(T), false, params)
 end
 
 function SolverCore.reset!(solver::TADAMSolver{T}) where {T}
   fill!(solver.m, zero(T))
   fill!(solver.v, zero(T))
+  solver.step_accepted = false
   return solver
 end
 
@@ -307,6 +309,7 @@ function SolverCore.solve!(
     end
 
     step_accepted = ρk >= η1
+    solver.step_accepted = step_accepted  # this is used in callbacks to determine if the step was accepted or not
     if step_accepted
       siter += 1
       x .= xt
