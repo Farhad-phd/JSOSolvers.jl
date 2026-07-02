@@ -286,6 +286,13 @@ function SolverCore.solve!(
   oneT = one(T)
   
   while !done
+    
+    # Always fresh: gradient on current minibatch (B_{k+1} after callback advanced it)
+    grad!(nlp, x, gx)
+    norm_gx = norm(gx)
+    set_dual_residual!(stats, norm_gx)
+    @. d = -(gx * (oneT - β1max) + momentum * β1max) / (oneT - β1^max(1, siter))
+
     solve_tadam_subproblem!(s, d, v, solver.Δ, ϵ_v)
     @. xt = x + s
     
@@ -304,7 +311,6 @@ function SolverCore.solve!(
     elseif ρk < η1
       solver.Δ = solver.Δ * γ1
       β1max *= γ3
-      @. d = -(gx * (oneT - β1max) + momentum * β1max) / (oneT - β1^siter)
     end
 
     step_accepted = ρk >= η1
@@ -315,16 +321,10 @@ function SolverCore.solve!(
       set_objective!(stats, ft)
       @. momentum = gx * (oneT - β1) + momentum * β1
       @. v = (gx^2 * (oneT - β2) + v * β2 * (oneT - β2^(siter - 1))) / (oneT - β2^siter)
-      
-      grad!(nlp, x, gx)
-      
-      norm_gx = norm(gx)
       mdotgx = dot(momentum, gx)
       @. p = momentum - gx
-      
       β1max = find_beta(p, mdotgx, norm_gx, β1, θ1, θ2, siter)
       avgβ1max += β1max
-      @. d = -(gx * (oneT - β1max) + momentum * β1max) / (oneT - β1^siter)
     end
 
     set_iter!(stats, stats.iter + 1)
